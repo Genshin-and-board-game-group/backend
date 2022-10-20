@@ -18,5 +18,22 @@
     <ClCompile Include="main.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="RecvRequestHandler.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpIOPack.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="common.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RecvRequestHandler.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpIOPack.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

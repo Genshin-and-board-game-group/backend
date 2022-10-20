@@ -1,27 +1,33 @@
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#include <windows.h>
-#include <http.h>
-#include <stdio.h>
-#include <Websocket.h>
+#include "common.h"
+#include "RecvRequestHandler.h"
 
 #pragma comment(lib, "httpapi.lib")
 #pragma comment(lib, "Websocket.lib")
 
-BOOL InitHTTPServer();
-
-VOID UnInitHTTPServer();
+#define REQUEST_BUFFER_SIZE 4096 // extra buffer we provided store entity etc...
 
 VOID PrintErrorMessage(
     _In_opt_ LPCSTR ErrorMessage,
     _In_ DWORD dwError);
 
+BOOL StartHTTPServer(VOID);
 
+VOID StopHTTPServer(VOID);
+
+VOID CALLBACK ServerHTTPCompletionCallback(
+    _Inout_     PTP_CALLBACK_INSTANCE Instance,
+    _In_opt_    PVOID                 Context,
+    _In_opt_    PVOID                 Overlapped,
+    _In_        ULONG                 IoResult,
+    _In_        ULONG_PTR             BytesTransferred,
+    _Inout_     PTP_IO                Io
+);
+
+BOOL bServerRunning = FALSE;
 HANDLE hReqHandle = NULL;
 HTTP_SERVER_SESSION_ID ServerSessionID = 0;
 HTTP_URL_GROUP_ID UrlGroupID = 0;
+PTP_IO pHTTPRequestIO = NULL;
 
 VOID PrintErrorMessage(
     _In_opt_ LPCSTR ErrorMessage,
@@ -69,8 +75,7 @@ VOID PrintErrorMessage(
     }
 }
 
-
-BOOL InitHTTPServer()
+BOOL StartHTTPServer(VOID)
 {
     HTTPAPI_VERSION HttpApiVersion = HTTPAPI_VERSION_2;
     ULONG ret;
@@ -84,6 +89,7 @@ BOOL InitHTTPServer()
         return bSuccess;
     }
 
+    bServerRunning = TRUE;
     __try
     {
         ret = HttpCreateRequestQueue(HttpApiVersion, NULL, NULL, 0, &hReqHandle);
@@ -124,38 +130,119 @@ BOOL InitHTTPServer()
             PrintErrorMessage("HttpSetUrlGroupProperty", ret);
             __leave;
         }
+
+        // bind to thread pool
+        pHTTPRequestIO = CreateThreadpoolIo(hReqHandle, ServerHTTPCompletionCallback, NULL, NULL);
+        if (!pHTTPRequestIO)
+        {
+            PrintErrorMessage("CreateThreadpoolIo", GetLastError());
+            __leave;
+        }
         bSuccess = TRUE;
     }
     __finally
     {
         if (!bSuccess)
         {
-            UnInitHTTPServer();
+            StopHTTPServer();
         }
     }
     return bSuccess;
 }
 
-VOID UnInitHTTPServer()
+VOID StopHTTPServer(VOID)
 {
+    bServerRunning = FALSE;
+
+    if (pHTTPRequestIO) CloseThreadpoolIo(pHTTPRequestIO);
     if (UrlGroupID) HttpCloseUrlGroup(UrlGroupID);
     if (HttpCloseServerSession) HttpCloseServerSession(ServerSessionID);
-    if (hReqHandle) HttpCloseRequestQueue(hReqHandle);
+    if (hReqHandle)
+    {
+        HttpShutdownRequestQueue(hReqHandle);
+        HttpCloseRequestQueue(hReqHandle);
+    }
     HttpTerminate(HTTP_INITIALIZE_SERVER, NULL);
 
+    pHTTPRequestIO = NULL;
     UrlGroupID = 0;
     ServerSessionID = 0;
     hReqHandle = NULL;
 }
 
+VOID CALLBACK ServerHTTPCompletionCallback(
+    _Inout_     PTP_CALLBACK_INSTANCE Instance,
+    _In_opt_    PVOID                 Context,
+    _In_opt_    PVOID                 Overlapped,
+    _In_        ULONG                 IoResult,
+    _In_        ULONG_PTR             BytesTransferred,
+    _Inout_     PTP_IO                Io
+)
+{
+    if (!Overlapped)
+    {
+        PrintErrorMessage("ServerHTTPCompletionCallback", IoResult);
+        return;
+    }
+
+    PHTTP_IOPACK pHttpIoPack = (PHTTP_IOPACK)Overlapped;
+    pHttpIoPack->Callback(pHttpIoPack, IoResult, BytesTransferred, Io);
+}
+
+BOOL LaunchRecvHTTPRequest(VOID)
+{
+    PHTTP_IOPACK pHttpIoPack = NULL;
+    BOOL bSuccess = FALSE;
+
+    StartThreadpoolIo(pHTTPRequestIO);
+
+    __try
+    {
+        PHTTP_IOPACK pHttpIoPack = AllocHttpIOPack(RecvRequestCallback, sizeof(HTTP_REQUEST) + REQUEST_BUFFER_SIZE);
+        if (!pHttpIoPack)
+            __leave;
+
+        PHTTP_REQUEST pHttpRequest = (PHTTP_REQUEST)(pHttpIoPack + 1);
+        ULONG ret = HttpReceiveHttpRequest(hReqHandle, HTTP_NULL_ID, 0, pHttpRequest, sizeof(HTTP_REQUEST) + REQUEST_BUFFER_SIZE, NULL, (LPOVERLAPPED)pHttpIoPack);
+        if (ret != ERROR_IO_PENDING)
+        {
+            PrintErrorMessage("HttpReceiveHttpRequest", ret);
+            __leave;
+        }
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        if (!bSuccess)
+        {
+            if (pHttpIoPack) FreeHttpIOPack(pHttpIoPack);
+            CancelThreadpoolIo(pHTTPRequestIO);
+        }
+    }
+    return bSuccess;
+}
 
 int main()
 {
-    if (!InitHTTPServer())
+    if (!StartHTTPServer())
     {
         return 1;
     }
+    if(!LaunchRecvHTTPRequest())
+    {
+        return 1;
+    }
+    while (1)
+    {
+        char command[128] = { 0 };
+        scanf_s("%s", command, (UINT)_countof(command));
 
-    UnInitHTTPServer();
+        if (strcmp(command, "stop") == 0)
+        {
+            break;
+        }
+        printf("unknown command: %s\n", command);
+    }
+    StopHTTPServer();
     return 0;
 }
