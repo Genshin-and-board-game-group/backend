@@ -51,7 +51,7 @@ static HTTP_SERVER_SESSION_ID ServerSessionID = 0;
 static HTTP_URL_GROUP_ID UrlGroupID = 0;
 static PTP_IO pHTTPRequestIO = NULL;
 
-BOOL StartHTTPServer(VOID)
+BOOL StartHTTPServer(DWORD RequestCount)
 {
     HTTPAPI_VERSION HttpApiVersion = HTTPAPI_VERSION_2;
     ULONG ret;
@@ -116,9 +116,12 @@ BOOL StartHTTPServer(VOID)
         }
 
         // TODO: Launch specified number of calls based on CPU affinity
+        for (DWORD i = 0; i < RequestCount; i++)
+        {
         if (!AsyncRecvHttpRequest())
         {
             __leave;
+        }
         }
         bSuccess = TRUE;
     }

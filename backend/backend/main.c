@@ -4,14 +4,10 @@
 #pragma comment(lib, "httpapi.lib")
 #pragma comment(lib, "Websocket.lib")
 
-VOID CALLBACK ServerHTTPCompletionCallback(
-    _Inout_     PTP_CALLBACK_INSTANCE Instance,
-    _In_opt_    PVOID                 Context,
-    _In_opt_    PVOID                 Overlapped,
-    _In_        ULONG                 IoResult,
-    _In_        ULONG_PTR             BytesTransferred,
-    _Inout_     PTP_IO                Io
-);
+// The number of requests for queueing, when
+#define OUTSTANDING_REQUESTS 8
+// The number of requests per processor
+#define REQUESTS_PER_PROCESSOR 2
 
 VOID PrintErrorMessage(
     _In_opt_ LPCSTR ErrorMessage,
@@ -59,9 +55,37 @@ VOID PrintErrorMessage(
     }
 }
 
+DWORD GetRequestCount()
+{
+    DWORD_PTR dwProcessAffinityMask, dwSystemAffinityMask;
+    WORD wRequestsCounter;
+    BOOL bGetProcessAffinityMaskSucceed;
+
+    bGetProcessAffinityMaskSucceed = GetProcessAffinityMask(
+        GetCurrentProcess(),
+        &dwProcessAffinityMask,
+        &dwSystemAffinityMask);
+
+    if (bGetProcessAffinityMaskSucceed)
+    {
+        for (wRequestsCounter = 0; dwProcessAffinityMask; dwProcessAffinityMask >>= 1)
+        {
+            if (dwProcessAffinityMask & 0x1) wRequestsCounter++;
+        }
+
+        wRequestsCounter = REQUESTS_PER_PROCESSOR * wRequestsCounter;
+    }
+    else
+    {
+        wRequestsCounter = OUTSTANDING_REQUESTS;
+    }
+
+    return wRequestsCounter;
+}
+
 int main()
 {
-    if (!StartHTTPServer())
+    if (!StartHTTPServer(GetRequestCount()))
     {
         return 1;
     }

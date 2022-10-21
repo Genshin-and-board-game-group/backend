@@ -1,6 +1,6 @@
 #pragma once
 #include "common.h"
 
-BOOL StartHTTPServer(VOID);
+BOOL StartHTTPServer(DWORD RequestCount);
 
 VOID StopHTTPServer(VOID);
