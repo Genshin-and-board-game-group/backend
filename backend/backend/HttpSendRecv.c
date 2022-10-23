@@ -36,6 +36,14 @@ typedef struct _HTTP_RECV_WEBSOCK_IODATA
     PVOID pWebsockContext;
 } HTTP_RECV_WEBSOCK_IODATA, * PHTTP_RECV_WEBSOCK_IODATA;
 
+typedef struct _HTTP_SEND_WEBSOCK_IODATA
+{
+    HTTP_REQUEST_ID RequestID;
+    HTTP_DATA_CHUNK DataChunk;
+    WEB_SOCKET_HANDLE hWebSock;
+    PVOID pWebsockContext;
+} HTTP_SEND_WEBSOCK_IODATA, * PHTTP_SEND_WEBSOCK_IODATA;
+
 static VOID CALLBACK ServerHTTPCompletionCallback(
     _Inout_     PTP_CALLBACK_INSTANCE Instance,
     _In_opt_    PVOID                 Context,
@@ -57,6 +65,28 @@ static BOOL AsyncSendHttpResponse(
 
 static BOOL AsyncSendUpgradeToWebsocket(_In_ PHTTP_REQUEST pHttpRequest);
 
+static BOOL AsyncRecvWebsockData(
+    _In_ HTTP_REQUEST_ID RequestID,
+    _In_ PVOID Buffer,
+    _In_ ULONG BufferLen,
+    _In_ WEB_SOCKET_HANDLE hWebSock,
+    _In_ PVOID pWebsockContext);
+
+static BOOL AsyncSendWebsockData(
+    _In_ HTTP_REQUEST_ID RequestID,
+    _In_ PVOID Buffer,
+    _In_ ULONG BufferLen,
+    _In_ WEB_SOCKET_HANDLE hWebSock,
+    _In_ PVOID pWebsockContext);
+
+static BOOL RunWebsockRecvAction(
+    _In_ WEB_SOCKET_HANDLE hWebSock,
+    _In_ HTTP_REQUEST_ID RequestID);
+
+static BOOL RunWebsockSendAction(
+    _In_ WEB_SOCKET_HANDLE hWebSock,
+    _In_ HTTP_REQUEST_ID RequestID);
+
 static VOID RecvRequestCallback(
     _In_ PHTTP_IOPACK pHttpIoPack,
     _In_ ULONG IoResult,
@@ -76,6 +106,12 @@ static VOID SendUpgradeWebsockCallback(
     _Inout_ PTP_IO Io);
 
 static VOID RecvWebsockDataCallback(
+    _In_ PHTTP_IOPACK pHttpIoPack,
+    _In_ ULONG IoResult,
+    _In_ ULONG_PTR BytesTransferred,
+    _Inout_ PTP_IO Io);
+
+static VOID SendWebsockDataCallback(
     _In_ PHTTP_IOPACK pHttpIoPack,
     _In_ ULONG IoResult,
     _In_ ULONG_PTR BytesTransferred,
@@ -151,7 +187,6 @@ BOOL StartHTTPServer(DWORD RequestCount)
             __leave;
         }
 
-        // TODO: Launch specified number of calls based on CPU affinity
         for (DWORD i = 0; i < RequestCount; i++)
         {
             if (!AsyncRecvHttpRequest())
@@ -488,6 +523,50 @@ static BOOL AsyncRecvWebsockData(
     return bSuccess;
 }
 
+static BOOL AsyncSendWebsockData(
+    _In_ HTTP_REQUEST_ID RequestID,
+    _In_ PVOID Buffer,
+    _In_ ULONG BufferLen,
+    _In_ WEB_SOCKET_HANDLE hWebSock,
+    _In_ PVOID pWebsockContext)
+{
+    PHTTP_IOPACK pHttpIoPack = NULL;
+    BOOL bSuccess = FALSE;
+
+    StartThreadpoolIo(pHTTPRequestIO);
+    __try
+    {
+        pHttpIoPack = AllocHttpIOPack(SendWebsockDataCallback, sizeof(HTTP_SEND_WEBSOCK_IODATA));
+        if (!pHttpIoPack)
+            __leave;
+
+        PHTTP_SEND_WEBSOCK_IODATA pData = (PHTTP_SEND_WEBSOCK_IODATA)(pHttpIoPack + 1);
+        pData->RequestID = RequestID;
+        pData->hWebSock = hWebSock;
+        pData->pWebsockContext = pWebsockContext;
+        pData->DataChunk.DataChunkType = HttpDataChunkFromMemory;
+        pData->DataChunk.FromMemory.pBuffer = Buffer;
+        pData->DataChunk.FromMemory.BufferLength = BufferLen;
+
+        ULONG ret = HttpSendResponseEntityBody(hReqHandle, RequestID, HTTP_SEND_RESPONSE_FLAG_MORE_DATA, 1, &(pData->DataChunk), NULL, NULL, 0, (LPOVERLAPPED)pHttpIoPack, NULL);
+        if (ret != NO_ERROR && ret != ERROR_IO_PENDING)
+        {
+            PrintErrorMessage("HttpSendResponseEntityBody", ret);
+            __leave;
+        }
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        if (!bSuccess)
+        {
+            if (pHttpIoPack) FreeHttpIOPack(pHttpIoPack);
+            CancelThreadpoolIo(pHTTPRequestIO);
+        }
+    }
+    return bSuccess;
+}
+
 static BOOL RunWebsockRecvAction(
     _In_ WEB_SOCKET_HANDLE hWebSock,
     _In_ HTTP_REQUEST_ID RequestID)
@@ -497,18 +576,22 @@ static BOOL RunWebsockRecvAction(
     WEB_SOCKET_ACTION Action;
     WEB_SOCKET_BUFFER_TYPE BufferType;
     PVOID pWebsockContext;
-    BOOL bClose = FALSE;
-    while (1)
+    do
     {
         BufferCnt = 1;
         HRESULT hr = WebSocketGetAction(hWebSock, WEB_SOCKET_RECEIVE_ACTION_QUEUE, &Buffer, &BufferCnt, &Action, &BufferType, NULL, &pWebsockContext);
         if (FAILED(hr))
-            return FALSE;
+            WebSocketAbortHandle(hWebSock);
 
         switch (Action)
         {
         case WEB_SOCKET_RECEIVE_FROM_NETWORK_ACTION:
-            return AsyncRecvWebsockData(RequestID, Buffer.Data.pbBuffer, Buffer.Data.ulBufferLength, hWebSock, pWebsockContext);
+            if (!AsyncRecvWebsockData(RequestID, Buffer.Data.pbBuffer, Buffer.Data.ulBufferLength, hWebSock, pWebsockContext))
+            {
+                WebSocketAbortHandle(hWebSock);
+                break;
+            }
+            return TRUE;
 
         case WEB_SOCKET_INDICATE_RECEIVE_COMPLETE_ACTION:
             if (BufferType != WEB_SOCKET_CLOSE_BUFFER_TYPE)
@@ -518,28 +601,80 @@ static BOOL RunWebsockRecvAction(
                 for (ULONG i = 0; i < Buffer.Data.ulBufferLength; i++) putchar(Buffer.Data.pbBuffer[i]);
                 printf("\n");
 
-                HRESULT hr = WebSocketReceive(hWebSock, NULL, NULL);
+                // test code
+                static BYTE dataToSend[] = { 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd' };
+                static WEB_SOCKET_BUFFER buffer;
+
+                buffer.Data.pbBuffer = dataToSend;
+                buffer.Data.ulBufferLength = ARRAYSIZE(dataToSend);
+
+                hr = WebSocketSend(hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, &buffer, NULL);
+                if (hr != S_OK)
+                {
+                    // TODO: error handling
+                }
+                RunWebsockSendAction(hWebSock, RequestID);
+                // test code end
+
+                hr = WebSocketReceive(hWebSock, NULL, NULL);
                 if (FAILED(hr))
                     return FALSE;
             }
             else
             {
                 printf("a player disconnected\n");
-                bClose = TRUE;
             }
             break;
         default:
-            // should not reach here...
-            DebugBreak();
             break;
         }
         WebSocketCompleteAction(hWebSock, pWebsockContext, 0);
-        if (bClose)
+
+    } while (Action != WEB_SOCKET_NO_ACTION);
+
+    WebSocketDeleteHandle(hWebSock);
+    return TRUE;
+}
+
+static BOOL RunWebsockSendAction(
+    _In_ WEB_SOCKET_HANDLE hWebSock,
+    _In_ HTTP_REQUEST_ID RequestID)
+{
+    WEB_SOCKET_BUFFER Buffer = { 0 };
+    ULONG BufferCnt;
+    WEB_SOCKET_ACTION Action;
+    WEB_SOCKET_BUFFER_TYPE BufferType;
+    PVOID pWebsockContext;
+
+    do
+    {
+        BufferCnt = 1;
+        HRESULT hr = WebSocketGetAction(hWebSock, WEB_SOCKET_SEND_ACTION_QUEUE, &Buffer, &BufferCnt, &Action, &BufferType, NULL, &pWebsockContext);
+        if (FAILED(hr))
+            WebSocketAbortHandle(hWebSock);
+
+        switch (Action)
         {
-            WebSocketDeleteHandle(hWebSock);
+        case WEB_SOCKET_SEND_TO_NETWORK_ACTION:
+            if (!AsyncSendWebsockData(RequestID, Buffer.Data.pbBuffer, Buffer.Data.ulBufferLength, hWebSock, pWebsockContext))
+            {
+                WebSocketAbortHandle(hWebSock);
+                break;
+            }
             return TRUE;
+
+        case WEB_SOCKET_NO_ACTION:
+            break;
+
+        case WEB_SOCKET_INDICATE_SEND_COMPLETE_ACTION:
+            // Handle Websocket data sent event here.
+            break;
         }
-    }
+
+        WebSocketCompleteAction(hWebSock, pWebsockContext, 0);
+    } while (Action != WEB_SOCKET_NO_ACTION);
+
+    return TRUE;
 }
 
 static VOID RecvRequestCallback(
@@ -567,7 +702,6 @@ static VOID RecvRequestCallback(
                     g_szUpgradeRequiredMessage,
                     (USHORT)strlen(g_szUpgradeRequiredMessage));
             }
-
             break;
         }
         case ERROR_MORE_DATA:
@@ -608,40 +742,39 @@ static VOID SendUpgradeWebsockCallback(
     _Inout_ PTP_IO Io)
 {
     PHTTP_UPGRADE_WS_IODATA pData = (PHTTP_UPGRADE_WS_IODATA)(pHttpIoPack + 1);
-    BOOL bCleanup = FALSE;
+    BOOL bCleanup = TRUE;
     HeapFree(GetProcessHeap(), 0, pData->HttpResponse.Headers.pUnknownHeaders);
-    WebSocketEndServerHandshake(pData->hWebSock);
-    if (bServerRunning)
-    {
-        if (IoResult == NO_ERROR)
-        {
-            printf("a player connected\n");
 
-            if (SUCCEEDED(WebSocketReceive(pData->hWebSock, NULL, NULL)))
-            {
-                if (!RunWebsockRecvAction(pData->hWebSock, pData->RequestID))
-                {
-                    bCleanup = TRUE;
-                }
-            }
-            else
-            {
-                bCleanup = TRUE;
-            }
-        }
-        else
+    __try
+    {
+        if (FAILED(WebSocketEndServerHandshake(pData->hWebSock)))
+            __leave;
+
+        if (!bServerRunning)
+            __leave;
+
+        if (IoResult != NO_ERROR)
         {
             PrintErrorMessage("SendUpgradeWebsockCallback", IoResult);
-            bCleanup = TRUE;
+            __leave;
         }
+
+        printf("a player connected\n");
+
+        if (FAILED(WebSocketReceive(pData->hWebSock, NULL, NULL)))
+            __leave;
+
+        if (!RunWebsockRecvAction(pData->hWebSock, pData->RequestID))
+            __leave;
+
+        bCleanup = FALSE;
     }
-    else
+    __finally
     {
-        bCleanup = TRUE;
-    }
-    if (bCleanup)
-    {
-        WebSocketDeleteHandle(pData->hWebSock);
+        if (bCleanup)
+        {
+            WebSocketDeleteHandle(pData->hWebSock); // no operations should be queued, no need to abort.
+        }
     }
     FreeHttpIOPack(pHttpIoPack);
 }
@@ -653,11 +786,61 @@ static VOID RecvWebsockDataCallback(
     _Inout_ PTP_IO Io)
 {
     PHTTP_RECV_WEBSOCK_IODATA pData = (PHTTP_RECV_WEBSOCK_IODATA)(pHttpIoPack + 1);
-
-    WebSocketCompleteAction(pData->hWebSock, pData->pWebsockContext, (ULONG)BytesTransferred);
-    if (!RunWebsockRecvAction(pData->hWebSock, pData->RequestID))
+    BOOL bError = TRUE; // an error occurred and websocket should be closed.
+    __try
     {
-        WebSocketDeleteHandle(pData->hWebSock);
+        WebSocketCompleteAction(pData->hWebSock, pData->pWebsockContext, (ULONG)BytesTransferred);
+
+        if (IoResult != NO_ERROR)
+        {
+            PrintErrorMessage("RecvWebsockDataCallback", IoResult);
+            __leave;
+        }
+
+        if (!RunWebsockRecvAction(pData->hWebSock, pData->RequestID))
+            __leave;
+
+        bError = FALSE;
     }
-    FreeHttpIOPack(pHttpIoPack);
+    __finally
+    {
+        if (bError)
+        {
+            WebSocketAbortHandle(pData->hWebSock);
+        }
+        FreeHttpIOPack(pHttpIoPack);
+    }
+}
+
+static VOID SendWebsockDataCallback(
+    _In_ PHTTP_IOPACK pHttpIoPack,
+    _In_ ULONG IoResult,
+    _In_ ULONG_PTR BytesTransferred,
+    _Inout_ PTP_IO Io)
+{
+    PHTTP_SEND_WEBSOCK_IODATA pData = (PHTTP_SEND_WEBSOCK_IODATA)(pHttpIoPack + 1);
+    BOOL bError = TRUE; // an error occurred and websocket should be closed.
+    __try
+    {
+        WebSocketCompleteAction(pData->hWebSock, pData->pWebsockContext, (ULONG)BytesTransferred);
+
+        if (IoResult != NO_ERROR)
+        {
+            PrintErrorMessage("SendWebsockDataCallback", IoResult);
+            __leave;
+        }
+
+        if (!RunWebsockSendAction(pData->hWebSock, pData->RequestID))
+            __leave;
+
+        bError = FALSE;
+    }
+    __finally
+    {
+        if (bError)
+        {
+            WebSocketAbortHandle(pData->hWebSock);
+        }
+        FreeHttpIOPack(pHttpIoPack);
+    }
 }
