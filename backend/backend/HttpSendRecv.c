@@ -32,13 +32,13 @@ typedef struct _HTTP_UPGRADE_WS_IODATA
 
 typedef struct _HTTP_RECV_WEBSOCK_IODATA
 {
-    PWEBSOCK_CONNECTION_INFO pConnInfo;
+    PCONNECTION_INFO pConnInfo;
     PVOID pWebsockContext;
 } HTTP_RECV_WEBSOCK_IODATA, * PHTTP_RECV_WEBSOCK_IODATA;
 
 typedef struct _HTTP_SEND_WEBSOCK_IODATA
 {
-    PWEBSOCK_CONNECTION_INFO pConnInfo;
+    PCONNECTION_INFO pConnInfo;
     HTTP_DATA_CHUNK DataChunk;
     PVOID pWebsockContext;
 } HTTP_SEND_WEBSOCK_IODATA, * PHTTP_SEND_WEBSOCK_IODATA;
@@ -65,18 +65,18 @@ static BOOL AsyncSendHttpResponse(
 static BOOL AsyncSendUpgradeToWebsocket(_In_ PHTTP_REQUEST pHttpRequest);
 
 static BOOL AsyncRecvWebsockData(
-    _In_ PWEBSOCK_CONNECTION_INFO pConnInfo,
+    _In_ PCONNECTION_INFO pConnInfo,
     _In_ PVOID Buffer,
     _In_ ULONG BufferLen,
     _In_ PVOID pWebsockContext);
 
 static BOOL AsyncSendWebsockData(
-    _In_ PWEBSOCK_CONNECTION_INFO pConnInfo,
+    _In_ PCONNECTION_INFO pConnInfo,
     _In_ PVOID Buffer,
     _In_ ULONG BufferLen,
     _In_ PVOID pWebsockContext);
 
-static VOID RunWebsockAction(_In_ PWEBSOCK_CONNECTION_INFO pConnInfo);
+static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo);
 
 static VOID RecvRequestCallback(
     _In_ PHTTP_IOPACK pHttpIoPack,
@@ -473,7 +473,7 @@ static BOOL AsyncSendUpgradeToWebsocket(_In_ PHTTP_REQUEST pHttpRequest)
 }
 
 static BOOL AsyncRecvWebsockData(
-    _In_ PWEBSOCK_CONNECTION_INFO pConnInfo,
+    _In_ PCONNECTION_INFO pConnInfo,
     _In_ PVOID Buffer,
     _In_ ULONG BufferLen,
     _In_ PVOID pWebsockContext)
@@ -512,7 +512,7 @@ static BOOL AsyncRecvWebsockData(
 }
 
 static BOOL AsyncSendWebsockData(
-    _In_ PWEBSOCK_CONNECTION_INFO pConnInfo,
+    _In_ PCONNECTION_INFO pConnInfo,
     _In_ PVOID Buffer,
     _In_ ULONG BufferLen,
     _In_ PVOID pWebsockContext)
@@ -553,7 +553,7 @@ static BOOL AsyncSendWebsockData(
     return bSuccess;
 }
 
-static VOID RunWebsockAction(_In_ PWEBSOCK_CONNECTION_INFO pConnInfo)
+static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
 {
     WEB_SOCKET_HANDLE hWebSock = pConnInfo->hWebSock;
     HTTP_REQUEST_ID RequestID = pConnInfo->RequestID;
@@ -689,7 +689,7 @@ static VOID SendUpgradeWebsockCallback(
 {
     PHTTP_UPGRADE_WS_IODATA pData = (PHTTP_UPGRADE_WS_IODATA)(pHttpIoPack + 1);
     BOOL bSuccess = FALSE;
-    PWEBSOCK_CONNECTION_INFO pConnInfo = NULL;
+    PCONNECTION_INFO pConnInfo = NULL;
     HeapFree(GetProcessHeap(), 0, pData->HttpResponse.Headers.pUnknownHeaders);
 
     __try
@@ -706,7 +706,7 @@ static VOID SendUpgradeWebsockCallback(
             __leave;
         }
 
-        pConnInfo = (PWEBSOCK_CONNECTION_INFO)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(WEBSOCK_CONNECTION_INFO));
+        pConnInfo = (PCONNECTION_INFO)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CONNECTION_INFO));
         if (!pConnInfo)
             __leave;
 
@@ -788,20 +788,20 @@ static VOID SendWebsockDataCallback(
     FreeHttpIOPack(pHttpIoPack);
 }
 
-BOOL WebsockSendMessage(_In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo, _In_ PWEB_SOCKET_BUFFER pBuffer)
+BOOL WebsockSendMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEB_SOCKET_BUFFER pBuffer)
 {
-    InterlockedIncrement64(&pWebsockConnInfo->RefCnt);
-    HRESULT hr = WebSocketSend(pWebsockConnInfo->hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, pBuffer, pBuffer);
+    InterlockedIncrement64(&pConnInfo->RefCnt);
+    HRESULT hr = WebSocketSend(pConnInfo->hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, pBuffer, pBuffer);
     // RunWebsockAction should be executed no matter whether WebSocketSend succeeded.
     // because we increased RefCnt. 
-    RunWebsockAction(pWebsockConnInfo);
+    RunWebsockAction(pConnInfo);
     return hr == S_OK;
 }
 
-BOOL WebsockDisconnect(_In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo)
+BOOL WebsockDisconnect(_In_ PCONNECTION_INFO pConnInfo)
 {
-    WebSocketAbortHandle(pWebsockConnInfo->hWebSock);
-    ULONG ret = HttpCancelHttpRequest(hReqHandle, pWebsockConnInfo->RequestID, NULL);
+    WebSocketAbortHandle(pConnInfo->hWebSock);
+    ULONG ret = HttpCancelHttpRequest(hReqHandle, pConnInfo->RequestID, NULL);
     if (ret != NO_ERROR)
     {
         PrintErrorMessage("HttpCancelHttpRequest", ret);

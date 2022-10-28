@@ -129,14 +129,18 @@
   <ItemGroup>
     <ClCompile Include="HttpIOPack.c" />
     <ClCompile Include="HttpSendRecv.c" />
+    <ClCompile Include="JsonHandler.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="WebsockEvent.c" />
+    <ClCompile Include="yyjson.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="HttpIOPack.h" />
     <ClInclude Include="HttpSendRecv.h" />
+    <ClInclude Include="JsonHandler.h" />
     <ClInclude Include="WebsockEvent.h" />
+    <ClInclude Include="yyjson.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
