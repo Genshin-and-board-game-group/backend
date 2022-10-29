@@ -131,6 +131,8 @@
     <ClCompile Include="HttpSendRecv.c" />
     <ClCompile Include="JsonHandler.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="MessageHandler.c" />
+    <ClCompile Include="MessageSender.c" />
     <ClCompile Include="WebsockEvent.c" />
     <ClCompile Include="yyjson.c" />
   </ItemGroup>
@@ -139,6 +141,8 @@
     <ClInclude Include="HttpIOPack.h" />
     <ClInclude Include="HttpSendRecv.h" />
     <ClInclude Include="JsonHandler.h" />
+    <ClInclude Include="MessageHandler.h" />
+    <ClInclude Include="MessageSender.h" />
     <ClInclude Include="WebsockEvent.h" />
     <ClInclude Include="yyjson.h" />
   </ItemGroup>

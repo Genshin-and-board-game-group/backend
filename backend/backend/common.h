@@ -5,9 +5,7 @@
 #endif
 
 #include <windows.h>
-#include <http.h>
 #include <stdio.h>
-#include <Websocket.h>
 
 VOID PrintErrorMessage(
     _In_opt_ LPCSTR ErrorMessage,

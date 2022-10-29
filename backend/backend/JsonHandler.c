@@ -1,6 +1,9 @@
 #include "common.h"
 #include "yyjson.h"
 #include "HttpSendRecv.h"
+#include "MessageHandler.h"
+
+typedef BOOL(*MESSAGE_HANDLER)(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot);
 
 BOOL ParseAndDispatchJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJsonMessage, _In_ ULONG cbMessageLen)
 {
@@ -18,8 +21,29 @@ BOOL ParseAndDispatchJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJs
         if (!pTypeStr)
             __leave;
 
-        printf("type: %s\n", pTypeStr);
-        bSuccess = TRUE;
+        // dispatch message by type.
+        
+        // TODO: this process could be slow.
+        // consider using a Trie (or what ever data structure) to optimize
+
+        struct 
+        { 
+            char* TypeName;
+            MESSAGE_HANDLER HandlerProc;
+        } HandlerList[] = 
+        { 
+            { "createRoom", HandleCreateRoom }
+        };
+
+        for (SIZE_T i = 0; i < _countof(HandlerList); i++)
+        {
+            if (strcmp(pTypeStr, HandlerList[i].TypeName) == 0)
+            {
+                bSuccess = HandlerList[i].HandlerProc(pConnInfo, JsonDoc->root);
+                break;
+            }
+        }
+        // unknown type
     }
     __finally
     {

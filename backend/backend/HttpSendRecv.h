@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
-#include "HttpSendRecv.h"
+#include <Websocket.h>
+#include <http.h>
 
 typedef struct _CONNECTION_INFO
 {
