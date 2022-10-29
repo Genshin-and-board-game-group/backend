@@ -22,14 +22,7 @@ VOID WebsockEventRecv(
         {
             printf("Failed to parse or dispatch json message. disconnecting...\n");
             WebsockDisconnect(pConnInfo);
-            break;
         }
-
-        /*static WEB_SOCKET_BUFFER buf;
-        buf.Data.pbBuffer = "HeLLoWoRlD";
-        buf.Data.ulBufferLength = _countof("HeLLoWoRlD") - 1;
-        WebsockSendMessage(pConnInfo, &buf);*/
-
         break;
     }
 
@@ -45,13 +38,6 @@ VOID WebsockEventRecv(
         printf("Received an unsupported buffer type\n");
         break;
     }
-}
-
-VOID WebsockEventSendFinish(
-    _In_ PCONNECTION_INFO pConnInfo,
-    _In_ PWEB_SOCKET_BUFFER pBuffer)
-{
-    // Free all resources used when sending here.
 }
 
 VOID WebsockEventDisconnect(_In_ PCONNECTION_INFO pConnInfo)

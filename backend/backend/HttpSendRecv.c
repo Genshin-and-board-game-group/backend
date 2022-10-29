@@ -563,12 +563,12 @@ static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
     WEB_SOCKET_ACTION Action;
     WEB_SOCKET_BUFFER_TYPE BufferType;
     PVOID pWebsockContext;
-    PVOID AppContext; // We use this to store buffer when sending...
+    PWEBSOCK_SEND_BUF pWebsockSendBuf; // We use this to store buffer when sending... not used when recving
 
     do
     {
         BufferCnt = 1;
-        HRESULT hr = WebSocketGetAction(hWebSock, WEB_SOCKET_ALL_ACTION_QUEUE, &Buffer, &BufferCnt, &Action, &BufferType, &AppContext, &pWebsockContext);
+        HRESULT hr = WebSocketGetAction(hWebSock, WEB_SOCKET_ALL_ACTION_QUEUE, &Buffer, &BufferCnt, &Action, &BufferType, &pWebsockSendBuf, &pWebsockContext);
         if (FAILED(hr))
             WebSocketAbortHandle(hWebSock);
 
@@ -592,7 +592,7 @@ static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
             break;
 
         case WEB_SOCKET_INDICATE_SEND_COMPLETE_ACTION:
-            WebsockEventSendFinish(pConnInfo, (PWEB_SOCKET_BUFFER)AppContext);
+            pWebsockSendBuf->Callback(pConnInfo, pWebsockSendBuf);
             break;
 
         case WEB_SOCKET_INDICATE_RECEIVE_COMPLETE_ACTION:
@@ -788,10 +788,10 @@ static VOID SendWebsockDataCallback(
     FreeHttpIOPack(pHttpIoPack);
 }
 
-BOOL WebsockSendMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEB_SOCKET_BUFFER pBuffer)
+BOOL WebsockSendMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
 {
     InterlockedIncrement64(&pConnInfo->RefCnt);
-    HRESULT hr = WebSocketSend(pConnInfo->hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, pBuffer, pBuffer);
+    HRESULT hr = WebSocketSend(pConnInfo->hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, &(pWebsockSendBuf->WebsockBuf), pWebsockSendBuf);
     // RunWebsockAction should be executed no matter whether WebSocketSend succeeded.
     // because we increased RefCnt. 
     RunWebsockAction(pConnInfo);
