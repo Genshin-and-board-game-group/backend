@@ -20,7 +20,7 @@ VOID WebsockEventRecv(
     {
         if (!ParseAndDispatchJsonMessage(pConnInfo, pBuffer->Data.pbBuffer, pBuffer->Data.ulBufferLength))
         {
-            printf("Failed to parse or dispatch json message. disconnecting...\n");
+            printf("Failed to handle json message. disconnecting...\n");
             WebsockDisconnect(pConnInfo);
         }
         break;

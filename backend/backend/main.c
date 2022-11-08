@@ -1,5 +1,6 @@
 #include "common.h"
 #include "HttpSendRecv.h"
+#include "RoomManager.h"
 
 #pragma comment(lib, "httpapi.lib")
 #pragma comment(lib, "Websocket.lib")
@@ -85,6 +86,8 @@ DWORD GetRequestCount()
 
 int main()
 {
+    InitRoomManager();
+
     if (!StartHTTPServer(GetRequestCount()))
     {
         return 1;

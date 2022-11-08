@@ -135,6 +135,7 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="MessageHandler.c" />
     <ClCompile Include="MessageSender.c" />
+    <ClCompile Include="RoomManager.c" />
     <ClCompile Include="WebsockEvent.c" />
     <ClCompile Include="yyjson.c" />
   </ItemGroup>
@@ -145,6 +146,7 @@
     <ClInclude Include="JsonHandler.h" />
     <ClInclude Include="MessageHandler.h" />
     <ClInclude Include="MessageSender.h" />
+    <ClInclude Include="RoomManager.h" />
     <ClInclude Include="WebsockEvent.h" />
     <ClInclude Include="yyjson.h" />
   </ItemGroup>

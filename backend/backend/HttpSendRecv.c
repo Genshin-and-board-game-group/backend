@@ -236,6 +236,28 @@ static VOID CALLBACK ServerHTTPCompletionCallback(
     pHttpIoPack->Callback(pHttpIoPack, IoResult, BytesTransferred, Io);
 }
 
+VOID ConnInfoAddRef(_In_ PCONNECTION_INFO pConnInfo)
+{
+    InterlockedIncrement64(&pConnInfo->RefCnt);
+}
+
+VOID ConnInfoRelease(_In_ PCONNECTION_INFO pConnInfo)
+{
+    LONG64 NewCnt = InterlockedDecrement64(&pConnInfo->RefCnt);
+    if (NewCnt == 0)
+    {
+        WebsockEventDisconnect(pConnInfo);
+        WebSocketDeleteHandle(pConnInfo->hWebSock);
+        HeapFree(GetProcessHeap(), 0, pConnInfo);
+    }
+}
+
+VOID ConnInfoCleanup(_In_ PCONNECTION_INFO pConnInfo)
+{
+    if (pConnInfo->pRoom)
+        LeaveRoom(pConnInfo);
+}
+
 static BOOL AsyncRecvHttpRequest(VOID)
 {
     PHTTP_IOPACK pHttpIoPack = NULL;
@@ -495,7 +517,10 @@ static BOOL AsyncRecvWebsockData(
         ULONG ret = HttpReceiveRequestEntityBody(hReqHandle, pConnInfo->RequestID, 0, Buffer, BufferLen, NULL, (LPOVERLAPPED)pHttpIoPack);
         if (ret != NO_ERROR && ret != ERROR_IO_PENDING)
         {
-            PrintErrorMessage("HttpReceiveRequestEntityBody", ret);
+            if (ret != ERROR_HANDLE_EOF) // handle in the same way, but supress the error message.
+            {
+                PrintErrorMessage("HttpReceiveRequestEntityBody", ret);
+            }
             __leave;
         }
         bSuccess = TRUE;
@@ -580,7 +605,7 @@ static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
         case WEB_SOCKET_RECEIVE_FROM_NETWORK_ACTION:
             if (AsyncRecvWebsockData(pConnInfo, Buffer.Data.pbBuffer, Buffer.Data.ulBufferLength, pWebsockContext))
                 return; // the rest is handled when completion
-
+            ConnInfoCleanup(pConnInfo);
             WebSocketAbortHandle(hWebSock);
             break;
 
@@ -599,14 +624,11 @@ static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
             if (BufferCnt == 1)
             {
                 WebsockEventRecv(pConnInfo, BufferType, &Buffer);
-                if (BufferType != WEB_SOCKET_CLOSE_BUFFER_TYPE)
+                hr = WebSocketReceive(hWebSock, NULL, NULL);
+                if (FAILED(hr))
                 {
-                    hr = WebSocketReceive(hWebSock, NULL, NULL);
-                    if (FAILED(hr))
-                    {
-                        WebSocketAbortHandle(hWebSock);
-                        break;
-                    }
+                    WebSocketAbortHandle(hWebSock);
+                    break;
                 }
             }
             break;
@@ -614,13 +636,7 @@ static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
         WebSocketCompleteAction(hWebSock, pWebsockContext, 0);
     } while (Action != WEB_SOCKET_NO_ACTION);
 
-    LONG64 NewCnt = InterlockedDecrement64(&pConnInfo->RefCnt);
-    if (NewCnt == 0)
-    {
-        WebsockEventDisconnect(pConnInfo);
-        WebSocketDeleteHandle(hWebSock);
-        HeapFree(GetProcessHeap(), 0, pConnInfo);
-    }
+    ConnInfoRelease(pConnInfo);
 }
 
 static VOID RecvRequestCallback(
@@ -755,8 +771,12 @@ static VOID RecvWebsockDataCallback(
 
     if (IoResult != NO_ERROR)
     {
-        PrintErrorMessage("RecvWebsockDataCallback", IoResult);
+        if (IoResult != ERROR_HANDLE_EOF) // handle in the same way, but supress the error message.
+        {
+            PrintErrorMessage("RecvWebsockDataCallback", IoResult);
+        }
         WebSocketAbortHandle(hWebSock);
+        ConnInfoCleanup(pData->pConnInfo);
     }
 
     RunWebsockAction(pData->pConnInfo);
@@ -790,8 +810,10 @@ static VOID SendWebsockDataCallback(
 
 BOOL WebsockSendMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
 {
-    InterlockedIncrement64(&pConnInfo->RefCnt);
+    ConnInfoAddRef(pConnInfo);
     HRESULT hr = WebSocketSend(pConnInfo->hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, &(pWebsockSendBuf->WebsockBuf), pWebsockSendBuf);
+    if (FAILED(hr))
+        WebSocketAbortHandle(pConnInfo->hWebSock);
     // RunWebsockAction should be executed no matter whether WebSocketSend succeeded.
     // because we increased RefCnt. 
     RunWebsockAction(pConnInfo);

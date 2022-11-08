@@ -32,7 +32,9 @@ BOOL ParseAndDispatchJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJs
             MESSAGE_HANDLER HandlerProc;
         } HandlerList[] = 
         { 
-            { "createRoom", HandleCreateRoom }
+            { "createRoom",   HandleCreateRoom },
+            { "joinRoom",     HandleJoinRoom },
+            { "changeAvatar", HandleChangeAvatar }
         };
 
         for (SIZE_T i = 0; i < _countof(HandlerList); i++)
@@ -52,13 +54,13 @@ BOOL ParseAndDispatchJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJs
     return bSuccess;
 }
 
-VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
+VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _Frees_ptr_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
 {
     free(pWebsockSendBuf->WebsockBuf.Data.pbBuffer); // string allocated from yyjson_mut_write
     HeapFree(GetProcessHeap(), 0, pWebsockSendBuf);
 }
 
-BOOL SendJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* JsonDoc)
+BOOL SendJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* JsonDoc)
 {
     SIZE_T JsonLen;
     BOOL bSuccess = FALSE;
