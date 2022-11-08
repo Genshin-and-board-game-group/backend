@@ -5,7 +5,7 @@
 
 typedef BOOL(*MESSAGE_HANDLER)(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot);
 
-BOOL ParseAndDispatchJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJsonMessage, _In_ ULONG cbMessageLen)
+BOOL ParseAndDispatchJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJsonMessage, _In_ ULONG cbMessageLen)
 {
     yyjson_doc* JsonDoc = yyjson_read(pJsonMessage, cbMessageLen, 0);
     if (!JsonDoc) return FALSE;
@@ -54,7 +54,7 @@ BOOL ParseAndDispatchJsonMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PBYTE pJs
     return bSuccess;
 }
 
-VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _Frees_ptr_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
+VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _In_ _Frees_ptr_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
 {
     free(pWebsockSendBuf->WebsockBuf.Data.pbBuffer); // string allocated from yyjson_mut_write
     HeapFree(GetProcessHeap(), 0, pWebsockSendBuf);

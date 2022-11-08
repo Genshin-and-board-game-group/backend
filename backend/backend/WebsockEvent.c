@@ -10,7 +10,7 @@ VOID WebsockEventConnect(_In_ PCONNECTION_INFO pConnInfo)
 }
 
 VOID WebsockEventRecv(
-    _In_ PCONNECTION_INFO pConnInfo,
+    _Inout_ PCONNECTION_INFO pConnInfo,
     _In_ WEB_SOCKET_BUFFER_TYPE BufferType,
     _In_ PWEB_SOCKET_BUFFER pBuffer)
 {
@@ -40,7 +40,7 @@ VOID WebsockEventRecv(
     }
 }
 
-VOID WebsockEventDisconnect(_In_ PCONNECTION_INFO pConnInfo)
+VOID WebsockEventDisconnect(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     printf("a player disconnected\n");
 }

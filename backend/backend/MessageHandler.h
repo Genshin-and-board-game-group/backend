@@ -3,8 +3,8 @@
 #include "HttpSendRecv.h"
 #include "yyjson.h"
 
-BOOL HandleCreateRoom(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot);
+BOOL HandleCreateRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot);
 
-BOOL HandleJoinRoom(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot);
+BOOL HandleJoinRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot);
 
-BOOL HandleChangeAvatar(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot);
+BOOL HandleChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot);

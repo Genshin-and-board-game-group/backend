@@ -15,7 +15,7 @@ UINT EmptyRoomList[TOT_ROOM_CNT];
 PGAME_ROOM RoomList[TOT_ROOM_CNT] = { 0 };
 UINT CurrentRoomNum;
 
-VOID InitRoomManager()
+VOID InitRoomManager(VOID)
 {
     for (int i = 0; i < TOT_ROOM_CNT; i++) EmptyRoomList[i] = i;
     CurrentRoomNum = 0;

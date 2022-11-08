@@ -76,7 +76,7 @@ static BOOL AsyncSendWebsockData(
     _In_ ULONG BufferLen,
     _In_ PVOID pWebsockContext);
 
-static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo);
+static VOID RunWebsockAction(_Inout_ PCONNECTION_INFO pConnInfo);
 
 static VOID RecvRequestCallback(
     _In_ PHTTP_IOPACK pHttpIoPack,
@@ -236,12 +236,12 @@ static VOID CALLBACK ServerHTTPCompletionCallback(
     pHttpIoPack->Callback(pHttpIoPack, IoResult, BytesTransferred, Io);
 }
 
-VOID ConnInfoAddRef(_In_ PCONNECTION_INFO pConnInfo)
+VOID ConnInfoAddRef(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     InterlockedIncrement64(&pConnInfo->RefCnt);
 }
 
-VOID ConnInfoRelease(_In_ PCONNECTION_INFO pConnInfo)
+VOID ConnInfoRelease(_Pre_valid_ _Post_maybenull_ PCONNECTION_INFO pConnInfo)
 {
     LONG64 NewCnt = InterlockedDecrement64(&pConnInfo->RefCnt);
     if (NewCnt == 0)
@@ -249,10 +249,11 @@ VOID ConnInfoRelease(_In_ PCONNECTION_INFO pConnInfo)
         WebsockEventDisconnect(pConnInfo);
         WebSocketDeleteHandle(pConnInfo->hWebSock);
         HeapFree(GetProcessHeap(), 0, pConnInfo);
+        pConnInfo = NULL;
     }
 }
 
-VOID ConnInfoCleanup(_In_ PCONNECTION_INFO pConnInfo)
+VOID ConnInfoCleanup(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     if (pConnInfo->pRoom)
         LeaveRoom(pConnInfo);
@@ -578,7 +579,7 @@ static BOOL AsyncSendWebsockData(
     return bSuccess;
 }
 
-static VOID RunWebsockAction(_In_ PCONNECTION_INFO pConnInfo)
+static VOID RunWebsockAction(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     WEB_SOCKET_HANDLE hWebSock = pConnInfo->hWebSock;
     HTTP_REQUEST_ID RequestID = pConnInfo->RequestID;
@@ -808,7 +809,7 @@ static VOID SendWebsockDataCallback(
     FreeHttpIOPack(pHttpIoPack);
 }
 
-BOOL WebsockSendMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
+BOOL WebsockSendMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf)
 {
     ConnInfoAddRef(pConnInfo);
     HRESULT hr = WebSocketSend(pConnInfo->hWebSock, WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, &(pWebsockSendBuf->WebsockBuf), pWebsockSendBuf);

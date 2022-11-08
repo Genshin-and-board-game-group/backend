@@ -4,7 +4,7 @@
 #include "MessageSender.h"
 #include "RoomManager.h"
 
-BOOL HandleCreateRoom(PCONNECTION_INFO pConnInfo, yyjson_val *pJsonRoot)
+BOOL HandleCreateRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val *pJsonRoot)
 {
     yyjson_val* pName = yyjson_obj_get(pJsonRoot, "name");
     if (!pName)
@@ -21,7 +21,7 @@ BOOL HandleCreateRoom(PCONNECTION_INFO pConnInfo, yyjson_val *pJsonRoot)
     return CreateRoom(pConnInfo, pNameStr, pPasswordStr);
 }
 
-BOOL HandleJoinRoom(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot)
+BOOL HandleJoinRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
     yyjson_val* pName = yyjson_obj_get(pJsonRoot, "name");
     if (!pName)
@@ -67,7 +67,7 @@ BOOL HandleJoinRoom(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot)
     return JoinRoom(RoomNumber - ROOM_NUMBER_MIN, pConnInfo, pNameStr, pPasswordStr);
 }
 
-BOOL HandleChangeAvatar(PCONNECTION_INFO pConnInfo, yyjson_val* pJsonRoot)
+BOOL HandleChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
     yyjson_val* pAvatar = yyjson_obj_get(pJsonRoot, "avatar");
     if (!pAvatar)

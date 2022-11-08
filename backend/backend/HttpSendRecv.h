@@ -31,6 +31,6 @@ BOOL StartHTTPServer(DWORD RequestCount);
 
 VOID StopHTTPServer(VOID);
 
-BOOL WebsockSendMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf);
+BOOL WebsockSendMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_BUF pWebsockSendBuf);
 
 BOOL WebsockDisconnect(_In_ PCONNECTION_INFO pConnInfo);

@@ -39,7 +39,7 @@ typedef struct _GAME_ROOM
     char Password[ROOM_PASSWORD_MAXLEN + 1];
 }GAME_ROOM, * PGAME_ROOM;
 
-VOID InitRoomManager();
+VOID InitRoomManager(VOID);
 
 BOOL CreateRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* NickName, _In_opt_z_ const char* Password);
 
