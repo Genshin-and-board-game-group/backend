@@ -201,6 +201,10 @@ BOOL JoinRoom(
     return bSuccess;
 }
 
+// Leave the room if the current user is inside one.
+// And if there's no one in the room, it will be closed.
+// Room owner will be transferred if the current user is room owner
+// Will boardcast room status to the rest of player in room after leaving.
 VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     AcquireSRWLockExclusive(&RoomPoolLock);
