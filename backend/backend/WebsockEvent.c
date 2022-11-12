@@ -1,32 +1,30 @@
 #include "common.h"
 #include "HttpSendRecv.h"
+#include "JsonHandler.h"
 
 // functions to receive websocket events.
 
-VOID WebsockEventConnect(_In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo)
+VOID WebsockEventConnect(_In_ PCONNECTION_INFO pConnInfo)
 {
     printf("a player connected\n");
 }
 
 VOID WebsockEventRecv(
-    _In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo,
+    _Inout_ PCONNECTION_INFO pConnInfo,
     _In_ WEB_SOCKET_BUFFER_TYPE BufferType,
     _In_ PWEB_SOCKET_BUFFER pBuffer)
 {
     switch (BufferType)
     {
     case WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE:
-
-        printf("Got a message: ");
-        for (ULONG i = 0; i < pBuffer->Data.ulBufferLength; i++) putchar(pBuffer->Data.pbBuffer[i]);
-        printf("\n");
-
-        static WEB_SOCKET_BUFFER buf;
-        buf.Data.pbBuffer = "HeLLoWoRlD";
-        buf.Data.ulBufferLength = _countof("HeLLoWoRlD") - 1;
-        WebsockSendMessage(pWebsockConnInfo, &buf);
-
+    {
+        if (!ParseAndDispatchJsonMessage(pConnInfo, pBuffer->Data.pbBuffer, pBuffer->Data.ulBufferLength))
+        {
+            printf("Failed to handle json message. disconnecting...\n");
+            WebsockDisconnect(pConnInfo);
+        }
         break;
+    }
 
     case WEB_SOCKET_CLOSE_BUFFER_TYPE:
         printf("Received a close buffer\n");
@@ -42,14 +40,7 @@ VOID WebsockEventRecv(
     }
 }
 
-VOID WebsockEventSendFinish(
-    _In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo,
-    _In_ PWEB_SOCKET_BUFFER pBuffer)
-{
-    Sleep(0);
-}
-
-VOID WebsockEventDisconnect(_In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo)
+VOID WebsockEventDisconnect(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     printf("a player disconnected\n");
 }

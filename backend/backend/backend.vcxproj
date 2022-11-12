@@ -90,6 +90,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,6 +119,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -129,14 +131,24 @@
   <ItemGroup>
     <ClCompile Include="HttpIOPack.c" />
     <ClCompile Include="HttpSendRecv.c" />
+    <ClCompile Include="JsonHandler.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="MessageHandler.c" />
+    <ClCompile Include="MessageSender.c" />
+    <ClCompile Include="RoomManager.c" />
     <ClCompile Include="WebsockEvent.c" />
+    <ClCompile Include="yyjson.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="HttpIOPack.h" />
     <ClInclude Include="HttpSendRecv.h" />
+    <ClInclude Include="JsonHandler.h" />
+    <ClInclude Include="MessageHandler.h" />
+    <ClInclude Include="MessageSender.h" />
+    <ClInclude Include="RoomManager.h" />
     <ClInclude Include="WebsockEvent.h" />
+    <ClInclude Include="yyjson.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

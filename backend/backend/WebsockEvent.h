@@ -2,15 +2,11 @@
 #include "common.h"
 #include "HttpSendRecv.h"
 
-VOID WebsockEventConnect(_In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo);
+VOID WebsockEventConnect(_In_ PCONNECTION_INFO pConnInfo);
 
 VOID WebsockEventRecv(
-    _In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo,
+    _Inout_ PCONNECTION_INFO pConnInfo,
     _In_ WEB_SOCKET_BUFFER_TYPE BufferType,
     _In_ PWEB_SOCKET_BUFFER pBuffer);
 
-VOID WebsockEventSendFinish(
-    _In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo,
-    _In_ PWEB_SOCKET_BUFFER pBuffer);
-
-VOID WebsockEventDisconnect(_In_ PWEBSOCK_CONNECTION_INFO pWebsockConnInfo);
+VOID WebsockEventDisconnect(_Inout_ PCONNECTION_INFO pConnInfo);

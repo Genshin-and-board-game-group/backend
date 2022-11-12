@@ -27,6 +27,21 @@
     <ClCompile Include="WebsockEvent.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="yyjson.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonHandler.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MessageHandler.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MessageSender.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RoomManager.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -39,6 +54,21 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="WebsockEvent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="yyjson.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonHandler.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MessageHandler.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MessageSender.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RoomManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
