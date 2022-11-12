@@ -35,7 +35,8 @@ BOOL ParseAndDispatchJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ PBYTE 
             { "createRoom",   HandleCreateRoom },
             { "joinRoom",     HandleJoinRoom },
             { "changeAvatar", HandleChangeAvatar },
-            { "leaveRoom",    HandleLeaveRoom }
+            { "leaveRoom",    HandleLeaveRoom },
+            { "startGame",    HandleStartGame }
         };
 
         for (SIZE_T i = 0; i < _countof(HandlerList); i++)

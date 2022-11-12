@@ -89,3 +89,8 @@ BOOL HandleLeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonR
     LeaveRoom(pConnInfo);
     return SendLeaveRoom(pConnInfo, TRUE, NULL);
 }
+
+BOOL HandleStartGame(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return StartGame(pConnInfo);
+}

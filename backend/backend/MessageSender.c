@@ -110,6 +110,40 @@ BOOL SendLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
     return bSuccess;
 }
 
+BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    // Create a mutable doc
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "startGame");
+        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
+
+        if (!bResult)
+        {
+            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
+        }
+
+        bSuccess = SendJsonMessage(pConnInfo, doc);
+
+        // TODO: notify other players in the room somehow...
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
 {
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -129,9 +163,15 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
 
         if (pRoom->bGaming)
         {
-            // TODO: unimplemented
-            FIXME("unimplemented");
-            DebugBreak();
+            for (UINT i = 0; i < pRoom->PlayingCount; i++)
+            {
+                yyjson_mut_val* Player = yyjson_mut_arr_add_obj(doc, PlayerList);
+                yyjson_mut_obj_add_str(doc, Player, "name", pRoom->PlayingList[i].NickName);
+                yyjson_mut_obj_add_sint(doc, Player, "ID", pRoom->PlayingList[i].GameID);
+                yyjson_mut_obj_add_str(doc, Player, "avatar", pRoom->PlayingList[i].Avatar);
+                yyjson_mut_obj_add_bool(doc, Player, "isOwner", pRoom->PlayingList[i].bIsRoomOwner);
+                yyjson_mut_obj_add_bool(doc, Player, "online", pRoom->PlayingList[i].pConnInfo != NULL);
+            }
         }
         else
         {

@@ -178,7 +178,7 @@ BOOL JoinRoom(
             PPLAYER_INFO pPlayerWaitingInfo = &pRoom->WaitingList[pConnInfo->WaitingIndex];
             pPlayerWaitingInfo->pConnInfo = pConnInfo;
             pPlayerWaitingInfo->GameID = pRoom->IDCount++;
-            pPlayerWaitingInfo->bIsRoomOwner = TRUE;
+            pPlayerWaitingInfo->bIsRoomOwner = FALSE;
             StringCbCopyA(pPlayerWaitingInfo->NickName, PLAYER_NICK_MAXLEN, NickName);
             StringCbCopyA(pPlayerWaitingInfo->Avatar, PLAYER_NICK_MAXLEN, "");
 
@@ -240,7 +240,8 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
                 pRoom->WaitingList[0].bIsRoomOwner = TRUE;
             }
 
-            // TODO: Also modify pRoom->PlayingList if game is running
+            // Player is offline. set the corresponding field to NULL.
+            pRoom->PlayingList[pConnInfo->PlayingIndex].pConnInfo = NULL;
 
             BroadcastRoomStatus(pRoom);
             ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
@@ -275,4 +276,50 @@ BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar)
     BroadcastRoomStatus(pRoom);
     ReleaseSRWLockShared(&pRoom->PlayerListLock);
     return TRUE;
+}
+
+BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    if (!pRoom)
+        return SendStartGame(pConnInfo, FALSE, "You are not in a room.");
+
+    BOOL bRet = TRUE;
+    AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->WaitingList[pConnInfo->WaitingIndex].bIsRoomOwner)
+        {
+            bRet = SendStartGame(pConnInfo, FALSE, "You are not room owner.");
+            __leave;
+        }
+        if (pRoom->WaitingCount < ROOM_PLAYER_MIN)
+        {
+            bRet = SendStartGame(pConnInfo, FALSE, "Too less player to start game.");
+            __leave;
+        }
+        if (pRoom->bGaming)
+        {
+            bRet = SendStartGame(pConnInfo, FALSE, "Game already started.");
+            __leave;
+        }
+
+        // copy WaitingList to PlayingList, update index as well.
+        for (UINT i = 0; i < pRoom->WaitingCount; i++)
+        {
+            pRoom->PlayingList[i] = pRoom->WaitingList[i];
+            pRoom->PlayingList[i].pConnInfo->PlayingIndex = i;
+        }
+        pRoom->PlayingCount = pRoom->WaitingCount;
+
+        pRoom->bGaming = TRUE;
+
+        bRet = SendStartGame(pConnInfo, TRUE, NULL);
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+
+    return bRet;
 }
