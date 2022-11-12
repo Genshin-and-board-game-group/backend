@@ -6,7 +6,7 @@
 
 VOID WebsockEventConnect(_In_ PCONNECTION_INFO pConnInfo)
 {
-    printf("a player connected\n");
+    Log(LOG_INFO, "a player connected");
 }
 
 VOID WebsockEventRecv(
@@ -20,14 +20,14 @@ VOID WebsockEventRecv(
     {
         if (!ParseAndDispatchJsonMessage(pConnInfo, pBuffer->Data.pbBuffer, pBuffer->Data.ulBufferLength))
         {
-            printf("Failed to handle json message. disconnecting...\n");
+            Log(LOG_ERROR, "Failed to handle json message. disconnecting...");
             WebsockDisconnect(pConnInfo);
         }
         break;
     }
 
     case WEB_SOCKET_CLOSE_BUFFER_TYPE:
-        printf("Received a close buffer\n");
+        Log(LOG_DEBUG, "Received a close buffer.");
         break;
 
     case WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE:
@@ -35,12 +35,12 @@ VOID WebsockEventRecv(
     case WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE:
     case WEB_SOCKET_PING_PONG_BUFFER_TYPE:
     case WEB_SOCKET_UNSOLICITED_PONG_BUFFER_TYPE:
-        printf("Received an unsupported buffer type\n");
+         Log(LOG_ERROR, "Received an unsupported websocket buffer type.");
         break;
     }
 }
 
 VOID WebsockEventDisconnect(_Inout_ PCONNECTION_INFO pConnInfo)
 {
-    printf("a player disconnected\n");
+    Log(LOG_INFO, "a player disconnected");
 }

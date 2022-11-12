@@ -98,6 +98,7 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
         if (pRoom->bGaming)
         {
             // TODO: unimplemented
+            FIXME("unimplemented");
             DebugBreak();
         }
         else

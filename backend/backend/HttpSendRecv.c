@@ -124,7 +124,7 @@ BOOL StartHTTPServer(DWORD RequestCount)
     ret = HttpInitialize(HttpApiVersion, HTTP_INITIALIZE_SERVER, NULL);
     if (ret != NO_ERROR)
     {
-        PrintErrorMessage("HttpInitialize", ret);
+        LogErrorMessage("HttpInitialize", ret);
         return bSuccess;
     }
 
@@ -134,28 +134,28 @@ BOOL StartHTTPServer(DWORD RequestCount)
         ret = HttpCreateRequestQueue(HttpApiVersion, NULL, NULL, 0, &hReqHandle);
         if (ret != NO_ERROR)
         {
-            PrintErrorMessage("HttpCreateRequestQueue", ret);
+            LogErrorMessage("HttpCreateRequestQueue", ret);
             __leave;
         }
 
         ret = HttpCreateServerSession(HttpApiVersion, &ServerSessionID, 0);
         if (ret != NO_ERROR)
         {
-            PrintErrorMessage("HttpCreateServerSession", ret);
+            LogErrorMessage("HttpCreateServerSession", ret);
             __leave;
         }
 
         ret = HttpCreateUrlGroup(ServerSessionID, &UrlGroupID, 0);
         if (ret != NO_ERROR)
         {
-            PrintErrorMessage("HttpCreateUrlGroup", ret);
+            LogErrorMessage("HttpCreateUrlGroup", ret);
             __leave;
         }
 
         ret = HttpAddUrlToUrlGroup(UrlGroupID, L"http://+:80/api", 0, 0);
         if (ret != NO_ERROR)
         {
-            PrintErrorMessage("HttpAddUrlToUrlGroup", ret);
+            LogErrorMessage("HttpAddUrlToUrlGroup", ret);
             __leave;
         }
 
@@ -166,7 +166,7 @@ BOOL StartHTTPServer(DWORD RequestCount)
         ret = HttpSetUrlGroupProperty(UrlGroupID, HttpServerBindingProperty, &BindingInfo, sizeof(BindingInfo));
         if (ret != NO_ERROR)
         {
-            PrintErrorMessage("HttpSetUrlGroupProperty", ret);
+            LogErrorMessage("HttpSetUrlGroupProperty", ret);
             __leave;
         }
 
@@ -174,7 +174,7 @@ BOOL StartHTTPServer(DWORD RequestCount)
         pHTTPRequestIO = CreateThreadpoolIo(hReqHandle, ServerHTTPCompletionCallback, NULL, NULL);
         if (!pHTTPRequestIO)
         {
-            PrintErrorMessage("CreateThreadpoolIo", GetLastError());
+            LogErrorMessage("CreateThreadpoolIo", GetLastError());
             __leave;
         }
 
@@ -228,7 +228,7 @@ static VOID CALLBACK ServerHTTPCompletionCallback(
 {
     if (!Overlapped)
     {
-        PrintErrorMessage("ServerHTTPCompletionCallback", IoResult);
+        LogErrorMessage("ServerHTTPCompletionCallback", IoResult);
         return;
     }
 
@@ -275,7 +275,7 @@ static BOOL AsyncRecvHttpRequest(VOID)
         ULONG ret = HttpReceiveHttpRequest(hReqHandle, HTTP_NULL_ID, 0, pHttpRequest, sizeof(HTTP_REQUEST) + REQUEST_BUFFER_SIZE, NULL, (LPOVERLAPPED)pHttpIoPack);
         if (ret != NO_ERROR && ret != ERROR_IO_PENDING)
         {
-            PrintErrorMessage("HttpReceiveHttpRequest", ret);
+            LogErrorMessage("HttpReceiveHttpRequest", ret);
             __leave;
         }
         bSuccess = TRUE;
@@ -326,7 +326,7 @@ static BOOL AsyncSendHttpResponse(
         ULONG ret = HttpSendHttpResponse(hReqHandle, RequestID, 0, &pData->HttpResponse, NULL, NULL, NULL, 0, (LPOVERLAPPED)pHttpIoPack, NULL);
         if (ret != NO_ERROR && ret != ERROR_IO_PENDING)
         {
-            PrintErrorMessage("HttpSendHttpResponse", ret);
+            LogErrorMessage("HttpSendHttpResponse", ret);
             __leave;
         }
         bSuccess = TRUE;
@@ -462,7 +462,7 @@ static BOOL AsyncSendUpgradeToWebsocket(_In_ PHTTP_REQUEST pHttpRequest)
             NULL);
         if (ret != NO_ERROR && ret != ERROR_IO_PENDING)
         {
-            PrintErrorMessage("HttpSendHttpResponse", ret);
+            LogErrorMessage("HttpSendHttpResponse", ret);
             __leave;
         }
         bSuccess = TRUE;
@@ -520,7 +520,7 @@ static BOOL AsyncRecvWebsockData(
         {
             if (ret != ERROR_HANDLE_EOF) // handle in the same way, but supress the error message.
             {
-                PrintErrorMessage("HttpReceiveRequestEntityBody", ret);
+                LogErrorMessage("HttpReceiveRequestEntityBody", ret);
             }
             __leave;
         }
@@ -563,7 +563,7 @@ static BOOL AsyncSendWebsockData(
         ULONG ret = HttpSendResponseEntityBody(hReqHandle, pConnInfo->RequestID, HTTP_SEND_RESPONSE_FLAG_MORE_DATA, 1, &(pData->DataChunk), NULL, NULL, 0, (LPOVERLAPPED)pHttpIoPack, NULL);
         if (ret != NO_ERROR && ret != ERROR_IO_PENDING)
         {
-            PrintErrorMessage("HttpSendResponseEntityBody", ret);
+            LogErrorMessage("HttpSendResponseEntityBody", ret);
             __leave;
         }
         bSuccess = TRUE;
@@ -693,7 +693,7 @@ static VOID SendResponseCallback(
 {
     if (IoResult != NO_ERROR)
     {
-        PrintErrorMessage("SendResponseCallback", IoResult);
+        LogErrorMessage("SendResponseCallback", IoResult);
     }
     FreeHttpIOPack(pHttpIoPack);
 }
@@ -719,7 +719,7 @@ static VOID SendUpgradeWebsockCallback(
 
         if (IoResult != NO_ERROR)
         {
-            PrintErrorMessage("SendUpgradeWebsockCallback", IoResult);
+            LogErrorMessage("SendUpgradeWebsockCallback", IoResult);
             __leave;
         }
 
@@ -774,7 +774,7 @@ static VOID RecvWebsockDataCallback(
     {
         if (IoResult != ERROR_HANDLE_EOF) // handle in the same way, but supress the error message.
         {
-            PrintErrorMessage("RecvWebsockDataCallback", IoResult);
+            LogErrorMessage("RecvWebsockDataCallback", IoResult);
         }
         WebSocketAbortHandle(hWebSock);
         ConnInfoCleanup(pData->pConnInfo);
@@ -800,7 +800,7 @@ static VOID SendWebsockDataCallback(
 
     if (IoResult != NO_ERROR)
     {
-        PrintErrorMessage("SendWebsockDataCallback", IoResult);
+        LogErrorMessage("SendWebsockDataCallback", IoResult);
         WebSocketAbortHandle(hWebSock);
     }
 
@@ -827,7 +827,7 @@ BOOL WebsockDisconnect(_In_ PCONNECTION_INFO pConnInfo)
     ULONG ret = HttpCancelHttpRequest(hReqHandle, pConnInfo->RequestID, NULL);
     if (ret != NO_ERROR)
     {
-        PrintErrorMessage("HttpCancelHttpRequest", ret);
+        LogErrorMessage("HttpCancelHttpRequest", ret);
         return FALSE;
     }
     return TRUE;
