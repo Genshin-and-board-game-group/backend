@@ -278,6 +278,37 @@ BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar)
     return TRUE;
 }
 
+// assign a random role to RoleList based on PlayingCount
+static BOOL AssignRole(_Inout_ PGAME_ROOM pRoom)
+{
+    UINT RoleList5[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST,                                              ROLE_MORGANA,  ROLE_ASSASSIN };
+    UINT RoleList6[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST,                               ROLE_MORGANA,  ROLE_ASSASSIN };
+    UINT RoleList7[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST,                               ROLE_MORGANA,  ROLE_OBERON,   ROLE_ASSASSIN };
+    UINT RoleList8[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST,                ROLE_MORGANA,  ROLE_ASSASSIN, ROLE_MINIONS };
+    UINT RoleList9[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_MORDRED,  ROLE_MORGANA, ROLE_ASSASSIN };
+    UINT RoleList10[] = { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_MORDRED,  ROLE_MORGANA, ROLE_OBERON,  ROLE_ASSASSIN };
+
+    UINT* List[] = { RoleList5, RoleList6, RoleList7, RoleList8, RoleList9, RoleList10 };
+
+    if (pRoom->PlayingCount - ROOM_PLAYER_MIN >= _countof(List))
+    {
+        return FALSE;
+    }
+    UINT* pList = List[pRoom->PlayingCount - ROOM_PLAYER_MIN];
+    for (UINT i = 0; i < pRoom->PlayingCount; i++)
+    {
+        UINT RandNum;
+        if (rand_s(&RandNum) != 0)
+            return FALSE;
+
+        RandNum %= (pRoom->PlayingCount - i);
+
+        pRoom->RoleList[i] = pList[RandNum];
+        pList[RandNum] = pList[pRoom->PlayingCount - i - 1];
+    }
+    return TRUE;
+}
+
 BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     PGAME_ROOM pRoom = pConnInfo->pRoom;
@@ -311,6 +342,13 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
             pRoom->PlayingList[i].pConnInfo->PlayingIndex = i;
         }
         pRoom->PlayingCount = pRoom->WaitingCount;
+
+        if (!AssignRole(pRoom))
+        {
+            Log(LOG_ERROR, "AssignRole failed.");
+            bRet = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
+            __leave;
+        }
 
         pRoom->bGaming = TRUE;
 

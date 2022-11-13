@@ -133,8 +133,6 @@ BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
         }
 
         bSuccess = SendJsonMessage(pConnInfo, doc);
-
-        // TODO: notify other players in the room somehow...
     }
     __finally
     {

@@ -11,6 +11,17 @@
 #define PLAYER_AVATAR_MAXLEN 32
 #define ROOM_PASSWORD_MAXLEN 32
 
+// Role definition
+#define ROLE_MERLIN   1 // 梅林
+#define ROLE_PERCIVAL 2 // 派西维尔
+#define ROLE_ASSASSIN 3 // 刺客
+#define ROLE_MORDRED  4 // 莫德雷德
+#define ROLE_OBERON   5 // 奥伯伦
+#define ROLE_MORGANA  6 // 莫甘娜
+#define ROLE_LOYALIST 7 // 亚瑟的忠臣
+#define ROLE_MINIONS  8 // 莫德雷德的爪牙
+#define ROLE_FAIRY    9 // 湖中仙女
+
 typedef struct _CONNECTION_INFO CONNECTION_INFO, * PCONNECTION_INFO;
 
 typedef struct _PLAYER_INFO
@@ -30,6 +41,8 @@ typedef struct _GAME_ROOM
     BOOL bGaming; // is game running. (or waiting otherwise)
     UINT IDCount;
 
+    char Password[ROOM_PASSWORD_MAXLEN + 1];
+
     SRWLOCK PlayerListLock; // Visiting / Writing following field needs this lock.
 
     UINT WaitingCount;
@@ -38,7 +51,7 @@ typedef struct _GAME_ROOM
     PLAYER_INFO PlayingList[ROOM_PLAYER_MAX]; // Copied from WaitingList when game starts, and not modified until game ends.
                                               //     except pConnInfo field (will be set to NULL if a player is offline)
 
-    char Password[ROOM_PASSWORD_MAXLEN + 1];
+    UINT RoleList[ROOM_PLAYER_MAX];
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);
