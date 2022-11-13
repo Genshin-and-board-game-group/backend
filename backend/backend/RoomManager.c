@@ -290,10 +290,8 @@ static BOOL AssignRole(_Inout_ PGAME_ROOM pRoom)
 
     UINT* List[] = { RoleList5, RoleList6, RoleList7, RoleList8, RoleList9, RoleList10 };
 
-    if (pRoom->PlayingCount - ROOM_PLAYER_MIN >= _countof(List))
-    {
-        return FALSE;
-    }
+    // TODO: assert(pRoom->PlayingCount - ROOM_PLAYER_MIN < _countof(List))
+
     UINT* pList = List[pRoom->PlayingCount - ROOM_PLAYER_MIN];
     for (UINT i = 0; i < pRoom->PlayingCount; i++)
     {
@@ -302,7 +300,6 @@ static BOOL AssignRole(_Inout_ PGAME_ROOM pRoom)
             return FALSE;
 
         RandNum %= (pRoom->PlayingCount - i);
-
         pRoom->RoleList[i] = pList[RandNum];
         pList[RandNum] = pList[pRoom->PlayingCount - i - 1];
     }
@@ -315,23 +312,23 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
     if (!pRoom)
         return SendStartGame(pConnInfo, FALSE, "You are not in a room.");
 
-    BOOL bRet = TRUE;
+    BOOL bSuccess = FALSE;
     AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
     __try
     {
         if (!pRoom->WaitingList[pConnInfo->WaitingIndex].bIsRoomOwner)
         {
-            bRet = SendStartGame(pConnInfo, FALSE, "You are not room owner.");
+            bSuccess = SendStartGame(pConnInfo, FALSE, "You are not room owner.");
             __leave;
         }
         if (pRoom->WaitingCount < ROOM_PLAYER_MIN)
         {
-            bRet = SendStartGame(pConnInfo, FALSE, "Too less player to start game.");
+            bSuccess = SendStartGame(pConnInfo, FALSE, "Too less player to start game.");
             __leave;
         }
         if (pRoom->bGaming)
         {
-            bRet = SendStartGame(pConnInfo, FALSE, "Game already started.");
+            bSuccess = SendStartGame(pConnInfo, FALSE, "Game already started.");
             __leave;
         }
 
@@ -346,18 +343,34 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         if (!AssignRole(pRoom))
         {
             Log(LOG_ERROR, "AssignRole failed.");
-            bRet = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
+            bSuccess = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
             __leave;
         }
 
+        // rand a leader, and set fairy if needed.
+        UINT RandNum;
+        if (rand_s(&RandNum) != 0)
+            __leave;
+        pRoom->LeaderIndex = RandNum % (pRoom->PlayingCount);
+
+        if (pRoom->PlayingCount >= ENABLE_FAIRY_THRESHOLD)
+        {
+            pRoom->FairyIndex = (pRoom->LeaderIndex + pRoom->PlayingCount - 1) % (pRoom->PlayingCount);
+        }
+        else
+        {
+            pRoom->FairyIndex = -1;
+        }
         pRoom->bGaming = TRUE;
 
-        bRet = SendStartGame(pConnInfo, TRUE, NULL);
+        bSuccess = SendStartGame(pConnInfo, TRUE, NULL);
+
+        BroadcastBeginGame(pRoom);
     }
     __finally
     {
         ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
     }
 
-    return bRet;
+    return bSuccess;
 }

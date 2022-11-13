@@ -11,3 +11,5 @@ BOOL SendLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
 BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
 
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom);
+
+BOOL BroadcastBeginGame(_In_ PGAME_ROOM pRoom);

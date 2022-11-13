@@ -20,7 +20,8 @@
 #define ROLE_MORGANA  6 // Äª¸ÊÄÈ
 #define ROLE_LOYALIST 7 // ÑÇÉªµÄÖÒ³¼
 #define ROLE_MINIONS  8 // ÄªµÂÀ×µÂµÄ×¦ÑÀ
-#define ROLE_FAIRY    9 // ºþÖÐÏÉÅ®
+
+#define ENABLE_FAIRY_THRESHOLD 7 // fairy will be enabled when player >= ENABLE_FAIRY_THRESHOLD
 
 typedef struct _CONNECTION_INFO CONNECTION_INFO, * PCONNECTION_INFO;
 
@@ -52,6 +53,9 @@ typedef struct _GAME_ROOM
                                               //     except pConnInfo field (will be set to NULL if a player is offline)
 
     UINT RoleList[ROOM_PLAYER_MAX];
+
+    UINT LeaderIndex; // current leader
+    INT FairyIndex;   // -1 means fairy is not enabled.
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);

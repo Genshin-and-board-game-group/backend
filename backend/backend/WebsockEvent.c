@@ -35,7 +35,7 @@ VOID WebsockEventRecv(
     case WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE:
     case WEB_SOCKET_PING_PONG_BUFFER_TYPE:
     case WEB_SOCKET_UNSOLICITED_PONG_BUFFER_TYPE:
-         Log(LOG_ERROR, "Received an unsupported websocket buffer type.");
+        Log(LOG_ERROR, "Received an unsupported websocket buffer type.");
         break;
     }
 }
