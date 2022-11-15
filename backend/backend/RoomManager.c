@@ -88,7 +88,8 @@ BOOL CreateRoom(
         InitializeSRWLock(&(pRoom->PlayerListLock));
 
         RoomList[pRoom->RoomNumber] = pRoom;
-        printf("room %d is opened.\n", pRoom->RoomNumber + ROOM_NUMBER_MIN);
+
+        Log(LOG_INFO, "room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
         bSuccess = SendCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL);
 
@@ -177,7 +178,7 @@ BOOL JoinRoom(
             PPLAYER_INFO pPlayerWaitingInfo = &pRoom->WaitingList[pConnInfo->WaitingIndex];
             pPlayerWaitingInfo->pConnInfo = pConnInfo;
             pPlayerWaitingInfo->GameID = pRoom->IDCount++;
-            pPlayerWaitingInfo->bIsRoomOwner = TRUE;
+            pPlayerWaitingInfo->bIsRoomOwner = FALSE;
             StringCbCopyA(pPlayerWaitingInfo->NickName, PLAYER_NICK_MAXLEN, NickName);
             StringCbCopyA(pPlayerWaitingInfo->Avatar, PLAYER_NICK_MAXLEN, "");
 
@@ -200,6 +201,10 @@ BOOL JoinRoom(
     return bSuccess;
 }
 
+// Leave the room if the current user is inside one.
+// And if there's no one in the room, it will be closed.
+// Room owner will be transferred if the current user is room owner
+// Will boardcast room status to the rest of player in room after leaving.
 VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     AcquireSRWLockExclusive(&RoomPoolLock);
@@ -211,7 +216,7 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
         LONG64 NewCnt = InterlockedDecrement64(&(pConnInfo->pRoom->RefCnt));
         if (NewCnt == 0)
         {
-            printf("room %d is empty now.\n", pConnInfo->pRoom->RoomNumber + ROOM_NUMBER_MIN);
+            Log(LOG_INFO, "room %1!d! is closed.", pConnInfo->pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
             EmptyRoomList[TOT_ROOM_CNT - CurrentRoomNum] = pConnInfo->pRoom->RoomNumber;
             CurrentRoomNum--;
@@ -235,7 +240,8 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
                 pRoom->WaitingList[0].bIsRoomOwner = TRUE;
             }
 
-            // TODO: Also modify pRoom->PlayingList if game is running
+            // Player is offline. set the corresponding field to NULL.
+            pRoom->PlayingList[pConnInfo->PlayingIndex].pConnInfo = NULL;
 
             BroadcastRoomStatus(pRoom);
             ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
@@ -270,4 +276,101 @@ BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar)
     BroadcastRoomStatus(pRoom);
     ReleaseSRWLockShared(&pRoom->PlayerListLock);
     return TRUE;
+}
+
+// assign a random role to RoleList based on PlayingCount
+static BOOL AssignRole(_Inout_ PGAME_ROOM pRoom)
+{
+    UINT RoleList5[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST,                                              ROLE_MORGANA,  ROLE_ASSASSIN };
+    UINT RoleList6[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST,                               ROLE_MORGANA,  ROLE_ASSASSIN };
+    UINT RoleList7[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST,                               ROLE_MORGANA,  ROLE_OBERON,   ROLE_ASSASSIN };
+    UINT RoleList8[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST,                ROLE_MORGANA,  ROLE_ASSASSIN, ROLE_MINIONS };
+    UINT RoleList9[] =  { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_MORDRED,  ROLE_MORGANA, ROLE_ASSASSIN };
+    UINT RoleList10[] = { ROLE_MERLIN, ROLE_PERCIVAL, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_LOYALIST, ROLE_MORDRED,  ROLE_MORGANA, ROLE_OBERON,  ROLE_ASSASSIN };
+
+    UINT* List[] = { RoleList5, RoleList6, RoleList7, RoleList8, RoleList9, RoleList10 };
+
+    // TODO: assert(pRoom->PlayingCount - ROOM_PLAYER_MIN < _countof(List))
+
+    UINT* pList = List[pRoom->PlayingCount - ROOM_PLAYER_MIN];
+    for (UINT i = 0; i < pRoom->PlayingCount; i++)
+    {
+        UINT RandNum;
+        if (rand_s(&RandNum) != 0)
+            return FALSE;
+
+        RandNum %= (pRoom->PlayingCount - i);
+        pRoom->RoleList[i] = pList[RandNum];
+        pList[RandNum] = pList[pRoom->PlayingCount - i - 1];
+    }
+    return TRUE;
+}
+
+BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    if (!pRoom)
+        return SendStartGame(pConnInfo, FALSE, "You are not in a room.");
+
+    BOOL bSuccess = FALSE;
+    AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->WaitingList[pConnInfo->WaitingIndex].bIsRoomOwner)
+        {
+            bSuccess = SendStartGame(pConnInfo, FALSE, "You are not room owner.");
+            __leave;
+        }
+        if (pRoom->WaitingCount < ROOM_PLAYER_MIN)
+        {
+            bSuccess = SendStartGame(pConnInfo, FALSE, "Too less player to start game.");
+            __leave;
+        }
+        if (pRoom->bGaming)
+        {
+            bSuccess = SendStartGame(pConnInfo, FALSE, "Game already started.");
+            __leave;
+        }
+
+        // copy WaitingList to PlayingList, update index as well.
+        for (UINT i = 0; i < pRoom->WaitingCount; i++)
+        {
+            pRoom->PlayingList[i] = pRoom->WaitingList[i];
+            pRoom->PlayingList[i].pConnInfo->PlayingIndex = i;
+        }
+        pRoom->PlayingCount = pRoom->WaitingCount;
+
+        if (!AssignRole(pRoom))
+        {
+            Log(LOG_ERROR, "AssignRole failed.");
+            bSuccess = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
+            __leave;
+        }
+
+        // rand a leader, and set fairy if needed.
+        UINT RandNum;
+        if (rand_s(&RandNum) != 0)
+            __leave;
+        pRoom->LeaderIndex = RandNum % (pRoom->PlayingCount);
+
+        if (pRoom->PlayingCount >= ENABLE_FAIRY_THRESHOLD)
+        {
+            pRoom->FairyIndex = (pRoom->LeaderIndex + pRoom->PlayingCount - 1) % (pRoom->PlayingCount);
+        }
+        else
+        {
+            pRoom->FairyIndex = -1;
+        }
+        pRoom->bGaming = TRUE;
+
+        bSuccess = SendStartGame(pConnInfo, TRUE, NULL);
+
+        BroadcastBeginGame(pRoom);
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+
+    return bSuccess;
 }

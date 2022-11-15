@@ -132,6 +132,7 @@
     <ClCompile Include="HttpIOPack.c" />
     <ClCompile Include="HttpSendRecv.c" />
     <ClCompile Include="JsonHandler.c" />
+    <ClCompile Include="Log.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="MessageHandler.c" />
     <ClCompile Include="MessageSender.c" />
@@ -144,6 +145,7 @@
     <ClInclude Include="HttpIOPack.h" />
     <ClInclude Include="HttpSendRecv.h" />
     <ClInclude Include="JsonHandler.h" />
+    <ClInclude Include="Log.h" />
     <ClInclude Include="MessageHandler.h" />
     <ClInclude Include="MessageSender.h" />
     <ClInclude Include="RoomManager.h" />

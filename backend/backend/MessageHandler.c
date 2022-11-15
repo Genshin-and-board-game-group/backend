@@ -78,3 +78,19 @@ BOOL HandleChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJs
 
     return ChangeAvatar(pConnInfo, pAvatarStr);
 }
+
+BOOL HandleLeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    if (!pConnInfo->pRoom)
+    {
+        return SendLeaveRoom(pConnInfo, FALSE, "You are not in a room.");
+    }
+
+    LeaveRoom(pConnInfo);
+    return SendLeaveRoom(pConnInfo, TRUE, NULL);
+}
+
+BOOL HandleStartGame(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return StartGame(pConnInfo);
+}

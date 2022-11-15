@@ -6,7 +6,5 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include "Log.h"
 
-VOID PrintErrorMessage(
-    _In_opt_ LPCSTR ErrorMessage,
-    _In_ DWORD dwError);
