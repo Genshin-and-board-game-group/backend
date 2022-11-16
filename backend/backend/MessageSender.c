@@ -19,6 +19,17 @@ static const CHAR* GetHintTypeString(UINT HintType)
     return HintStrTable[HintType];
 }
 
+// Only sends to player online & gaming
+BOOL BroadcastGamingJsonMessage(_In_ PGAME_ROOM pRoom, _In_ yyjson_mut_doc* JsonDoc)
+{
+    for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
+    {
+        if (!SendJsonMessage(pRoom->WaitingList[i].pConnInfo, JsonDoc))
+            return FALSE;
+    }
+    return TRUE;
+}
+
 BOOL SendCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT RoomNum, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
 {
     char szRoomNumber[10 + 1] = { 0 }; // MAXUINT32 tooks 10 char to store under decimal, without trailing zero.
@@ -285,6 +296,8 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
 
 BOOL BroadcastBeginGame(_In_ PGAME_ROOM pRoom)
 {
+    // TODO: this function is actually not broadcasting...
+    // it sends different message to different player.
     if (!pRoom->bGaming)
         return FALSE;
 
@@ -338,11 +351,7 @@ BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UI
             __leave;
         yyjson_mut_obj_add_val(doc, root, "team", TeamVal);
 
-        for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
-        {
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
-        }
-        bSuccess = TRUE;
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
     __finally
     {
@@ -368,11 +377,7 @@ BOOL BroadcastConfirmTeam(_In_ PGAME_ROOM pRoom)
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "confirmTeam");
 
-        for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
-        {
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
-        }
-        bSuccess = TRUE;
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
     __finally
     {
@@ -402,11 +407,7 @@ BOOL BroadcastVoteTeamProgress(_In_ PGAME_ROOM pRoom, _In_ UINT VotedCnt, _In_ U
             __leave;
         yyjson_mut_obj_add_val(doc, root, "voted", VotedVal);
 
-        for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
-        {
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
-        }
-        bSuccess = TRUE;
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
     __finally
     {
@@ -444,11 +445,7 @@ BOOL BroadcastVoteTeam(_In_ PGAME_ROOM pRoom, _In_ UINT VoteListCnt, _In_ VOTELI
         }
         yyjson_mut_obj_add_val(doc, root, "voteList", VoteListVal);
 
-        for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
-        {
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
-        }
-        bSuccess = TRUE;
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
     __finally
     {

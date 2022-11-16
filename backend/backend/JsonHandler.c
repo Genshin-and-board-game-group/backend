@@ -62,6 +62,7 @@ VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _In_ _Frees_ptr_ 
     HeapFree(GetProcessHeap(), 0, pWebsockSendBuf);
 }
 
+// NOTE: network error is not considered as an server error and will not return FALSE.
 BOOL SendJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* JsonDoc)
 {
     // TODO: perhaps we need to distinguish allocation error and network error
@@ -84,8 +85,7 @@ BOOL SendJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* Js
         pWebsockSendbuf->WebsockBuf.Data.pbBuffer = JsonString;
         pWebsockSendbuf->WebsockBuf.Data.ulBufferLength = (ULONG)JsonLen;
 
-        if (!WebsockSendMessage(pConnInfo, pWebsockSendbuf))
-            __leave;
+        WebsockSendMessage(pConnInfo, pWebsockSendbuf);
 
         bSuccess = TRUE;
     }
