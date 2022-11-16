@@ -64,6 +64,8 @@ VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _In_ _Frees_ptr_ 
 
 BOOL SendJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* JsonDoc)
 {
+    // TODO: perhaps we need to distinguish allocation error and network error
+    // so caller can know what's happening on when FALSE is returned...
     SIZE_T JsonLen;
     BOOL bSuccess = FALSE;
     PWEBSOCK_SEND_BUF pWebsockSendbuf = NULL;

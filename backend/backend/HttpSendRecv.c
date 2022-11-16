@@ -818,7 +818,7 @@ BOOL WebsockSendMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ PWEBSOCK_SEND_B
     // RunWebsockAction should be executed no matter whether WebSocketSend succeeded.
     // because we increased RefCnt. 
     RunWebsockAction(pConnInfo);
-    return hr == S_OK;
+    return SUCCEEDED(S_OK);
 }
 
 BOOL WebsockDisconnect(_In_ PCONNECTION_INFO pConnInfo)
