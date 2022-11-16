@@ -145,7 +145,7 @@ VOID LogErrorMessage(
             return;
 
         // well... I don't want the "\r\n" followed after the message.
-        if (dwLen >= 2 && ErrorText[dwLen - 2] == '\r' && ErrorText[dwLen - 1] == '\n')
+        if (dwLen >= 2 && ErrorText[dwLen - 2] == L'\r' && ErrorText[dwLen - 1] == L'\n')
             dwLen -= 2;
 
         if (Message)

@@ -1,6 +1,7 @@
 #include "common.h"
 #include "HttpSendRecv.h"
 #include "RoomManager.h"
+#include <locale.h>
 
 #pragma comment(lib, "httpapi.lib")
 #pragma comment(lib, "Websocket.lib")
@@ -38,10 +39,10 @@ DWORD GetRequestCount()
     return wRequestsCounter;
 }
 
-int main()
+int wmain()
 {
+    setlocale(LC_ALL, "");
     InitLog();
-
     Log(LOG_INFO, L"backend started.");
     InitRoomManager();
 
