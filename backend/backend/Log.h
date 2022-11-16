@@ -10,9 +10,9 @@
 VOID InitLog();
 
 VOID LogErrorMessage(
-    _In_opt_ LPCSTR ErrorMessage,
+    _In_opt_ LPCWSTR Message,
     _In_ DWORD dwError);
 
-VOID Log(_In_ INT LogLevel, _In_z_ LPCSTR pMessage, ...);
+VOID Log(_In_ INT LogLevel, _In_z_ LPCWSTR pMessage, ...);
 
-#define FIXME(szMessage, ...) Log(LOG_WARNING, "FIXME: " szMessage, __VA_ARGS__)
+#define FIXME(szMessage, ...) Log(LOG_WARNING, L"FIXME: " szMessage, __VA_ARGS__)

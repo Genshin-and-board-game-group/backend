@@ -89,7 +89,7 @@ BOOL CreateRoom(
 
         RoomList[pRoom->RoomNumber] = pRoom;
 
-        Log(LOG_INFO, "room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
+        Log(LOG_INFO, L"room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
         bSuccess = SendCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL);
 
@@ -216,7 +216,7 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
         LONG64 NewCnt = InterlockedDecrement64(&(pConnInfo->pRoom->RefCnt));
         if (NewCnt == 0)
         {
-            Log(LOG_INFO, "room %1!d! is closed.", pConnInfo->pRoom->RoomNumber + ROOM_NUMBER_MIN);
+            Log(LOG_INFO, L"room %1!d! is closed.", pConnInfo->pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
             EmptyRoomList[TOT_ROOM_CNT - CurrentRoomNum] = pConnInfo->pRoom->RoomNumber;
             CurrentRoomNum--;
@@ -342,7 +342,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 
         if (!AssignRole(pRoom))
         {
-            Log(LOG_ERROR, "AssignRole failed.");
+            Log(LOG_ERROR, L"AssignRole failed.");
             bSuccess = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
             __leave;
         }
