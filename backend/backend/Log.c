@@ -8,6 +8,53 @@
 #define LOG_YELLOW  "\x1b[33m"
 #define LOG_BLUE    "\x1b[34m"
 
+BOOL EnableVT = FALSE;
+
+VOID InitLog()
+{
+    // enable VT Sequnce output explicitly.
+    DWORD ConsoleMode;
+    if (!GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &ConsoleMode))
+        return;
+
+    if (!SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+        return;
+
+    EnableVT = TRUE;
+}
+
+static VOID GetVTFormatString(_In_ INT LogLevel, _Outptr_result_maybenull_ PCHAR *pVTMsgFmt, _Outptr_result_maybenull_ PCHAR *pVTLevelFmt)
+{
+    if (!EnableVT)
+    {
+        *pVTMsgFmt = *pVTLevelFmt = "";
+        return;
+    }
+    *pVTMsgFmt = LogLevel == LOG_CRITICAL ? LOG_DEFAULT LOG_RED : LOG_DEFAULT;
+    switch (LogLevel)
+    {
+    case LOG_DEBUG:
+        *pVTLevelFmt = LOG_BOLD LOG_GREEN;
+        break;
+    case LOG_INFO:
+        *pVTLevelFmt = LOG_BOLD;
+        break;
+    case LOG_WARNING:
+        *pVTLevelFmt = LOG_YELLOW;
+        break;
+    case LOG_ERROR:
+        *pVTLevelFmt = LOG_BOLD LOG_RED;
+        break;
+    case LOG_CRITICAL:
+        *pVTLevelFmt = LOG_RED;
+        break;
+    default:
+        // TODO: assert
+        *pVTLevelFmt = NULL;
+        break;
+    }
+}
+
 VOID Log(_In_ INT LogLevel, _In_z_ LPCSTR pMessage, ...)
 {
     LPSTR pBuffer = NULL;
@@ -37,26 +84,7 @@ VOID Log(_In_ INT LogLevel, _In_z_ LPCSTR pMessage, ...)
 
     GetLocalTime(&LocalTime);
 
-    VTMsgFmt = LogLevel == LOG_CRITICAL ? LOG_DEFAULT LOG_RED : LOG_DEFAULT;
-
-    switch (LogLevel)
-    {
-    case LOG_DEBUG:
-        VTLevelFmt = LOG_BOLD LOG_GREEN;
-        break;
-    case LOG_INFO:
-        VTLevelFmt = LOG_BOLD;
-        break;
-    case LOG_WARNING:
-        VTLevelFmt = LOG_YELLOW;
-        break;
-    case LOG_ERROR:
-        VTLevelFmt = LOG_BOLD LOG_RED;
-        break;
-    case LOG_CRITICAL:
-        VTLevelFmt = LOG_RED;
-        break;
-    }
+    GetVTFormatString(LogLevel, &VTMsgFmt, &VTLevelFmt);
 
     char* LevelText[] = { "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL" };
 

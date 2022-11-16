@@ -40,6 +40,9 @@ DWORD GetRequestCount()
 
 int main()
 {
+    //InitLog();
+
+    Log(LOG_INFO, "backend started.");
     InitRoomManager();
 
     if (!StartHTTPServer(GetRequestCount()))

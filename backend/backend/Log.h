@@ -7,6 +7,8 @@
 #define LOG_ERROR    3
 #define LOG_CRITICAL 4
 
+VOID InitLog();
+
 VOID LogErrorMessage(
     _In_opt_ LPCSTR ErrorMessage,
     _In_ DWORD dwError);
