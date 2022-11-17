@@ -98,44 +98,77 @@ BOOL HandleStartGame(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonR
 
 BOOL HandlePlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    return TRUE;
+    yyjson_val *pTeam = yyjson_obj_get(pJsonRoot, "team");
+    if (!yyjson_is_arr(pTeam))
+        return FALSE;
+
+    UINT TeamArr[ROOM_PLAYER_MAX] = { 0 };
+
+    yyjson_val* val;
+    yyjson_arr_iter iter;
+    UINT Size = unsafe_yyjson_get_len(pTeam);
+    if (Size > ROOM_PLAYER_MAX)
+        return FALSE;
+    yyjson_arr_iter_init(pTeam, &iter);
+    while ((val = yyjson_arr_iter_next(&iter))) {
+        if (!yyjson_is_uint(val))
+            return FALSE;
+        TeamArr[iter.idx] = yyjson_get_uint(val);
+    }
+
+    return PlayerSelectTeam(pConnInfo, Size, TeamArr);
 }
 
 BOOL HandlePlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    return TRUE;
+    return PlayerConfirmTeam(pConnInfo);
 }
 
 BOOL HandlePlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    return TRUE;
+    yyjson_val* pVote = yyjson_obj_get(pJsonRoot, "vote");
+    if (!yyjson_is_bool(pVote))
+        return FALSE;
+
+    BOOL bVote = unsafe_yyjson_get_bool(pVote);
+    return PlayerVoteTeam(pConnInfo, bVote);
 }
 
 BOOL HandlePlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    return TRUE;
+    yyjson_val* pPerform = yyjson_obj_get(pJsonRoot, "perform");
+    if (!yyjson_is_bool(pPerform))
+        return FALSE;
+
+    BOOL bPerfrom = unsafe_yyjson_get_bool(pPerform);
+    return PlayerConductMission(pConnInfo, bPerfrom);
 }
 
 BOOL HandlePlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    return TRUE;
+    yyjson_val* pID = yyjson_obj_get(pJsonRoot, "ID");
+    if (!yyjson_is_uint(pID))
+        return FALSE;
+
+    UINT ID = unsafe_yyjson_get_uint(pID);
+    return PlayerFairyInspect(pConnInfo, ID);
 }
 
 BOOL HandlePlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    yyjson_val *pAssassinateID = yyjson_obj_get(pJsonRoot, "ID");
-    if (!pAssassinateID)
+    yyjson_val *pID = yyjson_obj_get(pJsonRoot, "ID");
+    if (!yyjson_is_uint(pID))
         return FALSE;
 
-    if (!yyjson_is_uint(pAssassinateID))
-        return FALSE;
-
-    UINT AssassinateID = yyjson_get_uint(pAssassinateID);
-
-    return PlayerAssassinate(pConnInfo, AssassinateID);
+    UINT ID = yyjson_get_uint(pID);
+    return PlayerAssassinate(pConnInfo, ID);
 }
 
 BOOL HandlePlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
-    return TRUE;
+    yyjson_val* pMessage = yyjson_obj_get(pJsonRoot, "message");
+    if (!yyjson_is_str(pMessage))
+        return FALSE;
+
+    return PlayerTextMessage(pConnInfo, yyjson_get_str(pMessage));
 }

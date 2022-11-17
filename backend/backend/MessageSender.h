@@ -32,7 +32,7 @@ BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, 
 
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom);
 
-BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[]);
+BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamSize, _In_ UINT32 TeamArr[]);
 
 BOOL BroadcastConfirmTeam(_In_ PGAME_ROOM pRoom);
 

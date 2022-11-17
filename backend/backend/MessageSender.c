@@ -357,7 +357,7 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
     return bSuccess;
 }
 
-BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[])
+BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamSize, _In_ UINT32 TeamArr[])
 {
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
     if (!doc)
@@ -372,7 +372,7 @@ BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UI
 
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "selectTeam");
-        yyjson_mut_val* TeamVal = yyjson_mut_arr_with_uint32(doc, TeamMemberList, TeamMemberCnt);
+        yyjson_mut_val* TeamVal = yyjson_mut_arr_with_uint32(doc, TeamArr, TeamSize);
         if (!TeamVal)
             __leave;
         yyjson_mut_obj_add_val(doc, root, "team", TeamVal);
