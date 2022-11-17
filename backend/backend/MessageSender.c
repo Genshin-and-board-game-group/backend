@@ -170,6 +170,36 @@ BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
     return bSuccess;
 }
 
+BOOL SendBeginGame(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT Role, _In_ BOOL bFairyEnabled, _In_ UINT FairyID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "beginGame");
+        yyjson_mut_obj_add_str(doc, root, "role", GetRoleString(Role));
+        if (bFairyEnabled)
+        {
+            yyjson_mut_obj_add_uint(doc, root, "fairyID", FairyID);
+        }
+        bSuccess = SendJsonMessage(pConnInfo, doc); 
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
 BOOL SendRoleHint(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT HintCnt, _In_ HINTLIST HintList[])
 {
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -292,43 +322,6 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
         yyjson_mut_doc_free(doc);
     }
     return bSuccess;
-}
-
-BOOL BroadcastBeginGame(_In_ PGAME_ROOM pRoom)
-{
-    // TODO: this function is actually not broadcasting...
-    // it sends different message to different player.
-    if (!pRoom->bGaming)
-        return FALSE;
-
-    for (UINT i = 0; i < pRoom->PlayingCount; i++)
-    {
-        yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-        if (!doc)
-            return FALSE;
-
-        __try
-        {
-            yyjson_mut_val* root = yyjson_mut_obj(doc);
-            if (!root)
-                __leave;
-            yyjson_mut_doc_set_root(doc, root);
-            yyjson_mut_obj_add_str(doc, root, "type", "beginGame");
-            yyjson_mut_obj_add_str(doc, root, "role", GetRoleString(pRoom->RoleList[i]));
-
-            if (pRoom->FairyIndex != -1) // Send fairyID if enabled
-            {
-                yyjson_mut_obj_add_uint(doc, root, "fairyID", pRoom->PlayingList[pRoom->FairyIndex].GameID);
-            }
-
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
-        }
-        __finally
-        {
-            yyjson_mut_doc_free(doc);
-        }
-    }
-    return TRUE;
 }
 
 BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[])

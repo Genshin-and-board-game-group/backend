@@ -355,17 +355,23 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 
         if (pRoom->PlayingCount >= ENABLE_FAIRY_THRESHOLD)
         {
+            pRoom->bFairyEnabled = TRUE;
             pRoom->FairyIndex = (pRoom->LeaderIndex + pRoom->PlayingCount - 1) % (pRoom->PlayingCount);
         }
         else
         {
-            pRoom->FairyIndex = -1;
+            pRoom->bFairyEnabled = FALSE;
+            pRoom->FairyIndex = 0;
         }
         pRoom->bGaming = TRUE;
 
         bSuccess = SendStartGame(pConnInfo, TRUE, NULL);
 
-        BroadcastBeginGame(pRoom);
+        for (UINT i = 0; i < pRoom->PlayingCount; i++)
+        {
+            UINT FairyID = pRoom->bFairyEnabled ? pRoom->PlayingList[pRoom->FairyIndex].GameID : 0;
+            SendBeginGame(pRoom->PlayingList[i].pConnInfo, pRoom->RoleList[i], pRoom->bFairyEnabled, FairyID);
+        }
     }
     __finally
     {

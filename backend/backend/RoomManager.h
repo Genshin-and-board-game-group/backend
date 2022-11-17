@@ -64,7 +64,8 @@ typedef struct _GAME_ROOM
     UINT RoleList[ROOM_PLAYER_MAX];
 
     UINT LeaderIndex; // current leader
-    INT FairyIndex;   // -1 means fairy is not enabled.
+    BOOL bFairyEnabled;
+    UINT FairyIndex;
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);
