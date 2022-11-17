@@ -107,11 +107,12 @@ BOOL CreateRoom(
 
         Log(LOG_INFO, L"room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
-        bSuccess = SendCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL);
+        if (!SendCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL))
+            __leave;
 
-        // TODO: I'm not sure what should I do if anything went wrong when broadcasting...
-        // so I ignored the return value for now
-        BroadcastRoomStatus(pRoom);
+        if (!BroadcastRoomStatus(pRoom))
+            __leave;
+        bSuccess = TRUE;
     }
     __finally
     {
@@ -198,11 +199,13 @@ BOOL JoinRoom(
             StringCbCopyA(pPlayerWaitingInfo->NickName, PLAYER_NICK_MAXLEN, NickName);
             StringCbCopyA(pPlayerWaitingInfo->Avatar, PLAYER_NICK_MAXLEN, "");
 
-            bSuccess &= SendJoinRoom(pConnInfo, TRUE, pPlayerWaitingInfo->GameID, NULL);
+            if (!SendJoinRoom(pConnInfo, TRUE, pPlayerWaitingInfo->GameID, NULL))
+                __leave;
 
-            // TODO: I'm not sure what should I do if anything went wrong when broadcasting...
-            // so I ignored the return value for now
-            BroadcastRoomStatus(pRoom);
+            if (!BroadcastRoomStatus(pRoom))
+                __leave;
+
+            bSuccess = TRUE;
         }
         __finally
         {
