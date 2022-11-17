@@ -1,8 +1,36 @@
 #include "common.h"
 #include "yyjson.h"
 #include "JsonHandler.h"
+#include "MessageSender.h"
 
-BOOL SendCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT RoomNum, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
+static const CHAR* GetRoleString(UINT Role)
+{
+    // correspond with the ROLE_* MACRO
+    // TODO: assert here
+    static const CHAR* RoleTable[] = { NULL, "MERLIN", "PERCIVAL", "ASSASSIN", "MORDRED", "OBERON", "MORGANA", "LOYALIST", "MINIONS" };
+    return RoleTable[Role];
+}
+
+static const CHAR* GetHintTypeString(UINT HintType)
+{
+    // correspond with the HINT_* MACRO
+    // TODO: assert here
+    static const CHAR* HintStrTable[] = { NULL, "GOOD", "BAD", "MERLIN_OR_MORGANA", "ASSASSIN", "MORDRED", "MORGANA", "MINIONS" };
+    return HintStrTable[HintType];
+}
+
+// Only sends to player online & gaming
+BOOL BroadcastGamingJsonMessage(_In_ PGAME_ROOM pRoom, _In_ yyjson_mut_doc* JsonDoc)
+{
+    for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
+    {
+        if (!SendJsonMessage(pRoom->WaitingList[i].pConnInfo, JsonDoc))
+            return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL ReplyCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT RoomNum, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
 {
     char szRoomNumber[10 + 1] = { 0 }; // MAXUINT32 tooks 10 char to store under decimal, without trailing zero.
 
@@ -42,7 +70,7 @@ BOOL SendCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UIN
     return bSuccess;
 }
 
-BOOL SendJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
+BOOL ReplyJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
 {
     // Create a mutable doc
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -78,7 +106,7 @@ BOOL SendJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT 
     return bSuccess;
 }
 
-BOOL SendLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+BOOL ReplyLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
 {
     // Create a mutable doc
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -110,7 +138,7 @@ BOOL SendLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
     return bSuccess;
 }
 
-BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+BOOL ReplyStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
 {
     // Create a mutable doc
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -125,6 +153,133 @@ BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
             __leave;
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "startGame");
+        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
+
+        if (!bResult)
+        {
+            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
+        }
+
+        bSuccess = SendJsonMessage(pConnInfo, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL SendBeginGame(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT Role, _In_ BOOL bFairyEnabled, _In_ UINT FairyID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "beginGame");
+        yyjson_mut_obj_add_str(doc, root, "role", GetRoleString(Role));
+        if (bFairyEnabled)
+        {
+            yyjson_mut_obj_add_uint(doc, root, "fairyID", FairyID);
+        }
+        bSuccess = SendJsonMessage(pConnInfo, doc); 
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL SendRoleHint(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT HintCnt, _In_ HINTLIST HintList[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "roleHint");
+
+        yyjson_mut_val* HintListVal = yyjson_mut_arr(doc);
+        if (!HintListVal)
+            __leave;
+
+        for (UINT i = 0; i < HintCnt; i++)
+        {
+            yyjson_mut_val* HintVal = yyjson_mut_arr_add_obj(doc, HintListVal);
+            yyjson_mut_obj_add_uint(doc, HintVal, "ID", HintList[i].ID);
+            yyjson_mut_obj_add_str(doc, HintVal, "HintType", GetHintTypeString(HintList[i].HintType));
+        }
+        yyjson_mut_obj_add_val(doc, root, "HintList", HintListVal);
+
+        bSuccess = SendJsonMessage(pConnInfo, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL SendSetLeader(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "setLeader");
+        yyjson_mut_obj_add_uint(doc, root, "ID", ID);
+
+        bSuccess = SendJsonMessage(pConnInfo, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    // Create a mutable doc
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "playerAssassinate");
         yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
 
         if (!bResult)
@@ -157,13 +312,15 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "roomStatus");
 
-        yyjson_mut_val* PlayerList = yyjson_mut_arr(doc);
+        yyjson_mut_val* PlayerListVal = yyjson_mut_arr(doc);
+        if (!PlayerListVal)
+            __leave;
 
         if (pRoom->bGaming)
         {
             for (UINT i = 0; i < pRoom->PlayingCount; i++)
             {
-                yyjson_mut_val* Player = yyjson_mut_arr_add_obj(doc, PlayerList);
+                yyjson_mut_val* Player = yyjson_mut_arr_add_obj(doc, PlayerListVal);
                 yyjson_mut_obj_add_str(doc, Player, "name", pRoom->PlayingList[i].NickName);
                 yyjson_mut_obj_add_uint(doc, Player, "ID", pRoom->PlayingList[i].GameID);
                 yyjson_mut_obj_add_str(doc, Player, "avatar", pRoom->PlayingList[i].Avatar);
@@ -175,7 +332,7 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
         {
             for (UINT i = 0; i < pRoom->WaitingCount; i++)
             {
-                yyjson_mut_val* Player = yyjson_mut_arr_add_obj(doc, PlayerList);
+                yyjson_mut_val* Player = yyjson_mut_arr_add_obj(doc, PlayerListVal);
                 yyjson_mut_obj_add_str(doc, Player, "name", pRoom->WaitingList[i].NickName);
                 yyjson_mut_obj_add_uint(doc, Player, "ID", pRoom->WaitingList[i].GameID);
                 yyjson_mut_obj_add_str(doc, Player, "avatar", pRoom->WaitingList[i].Avatar);
@@ -183,12 +340,12 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
                 yyjson_mut_obj_add_bool(doc, Player, "online", TRUE);
             }
         }
-
-        yyjson_mut_obj_add_val(doc, root, "playerList", PlayerList);
+        yyjson_mut_obj_add_val(doc, root, "playerList", PlayerListVal);
 
         for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
         {
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
+            if (!SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc))
+                __leave;
         }
         bSuccess = TRUE;
     }
@@ -200,44 +357,308 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
     return bSuccess;
 }
 
-static const CHAR* GetRoleStringByRole(UINT Role)
+BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[])
 {
-    // correspond with the ROLE_* MACRO
-    static const CHAR* RoleTable[] = { NULL, "ROLE_MERLIN", "PERCIVAL", "ASSASSIN", "MORDRED", "OBERON", "MORGANA", "LOYALIST", "MINIONS" };
-    return RoleTable[Role];
-}
-
-BOOL BroadcastBeginGame(_In_ PGAME_ROOM pRoom)
-{
-    if (!pRoom->bGaming)
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
         return FALSE;
 
-    for (UINT i = 0; i < pRoom->PlayingCount; i++)
+    BOOL bSuccess = FALSE;
+    __try
     {
-        yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-        if (!doc)
-            return FALSE;
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
 
-        __try
-        {
-            yyjson_mut_val* root = yyjson_mut_obj(doc);
-            if (!root)
-                __leave;
-            yyjson_mut_doc_set_root(doc, root);
-            yyjson_mut_obj_add_str(doc, root, "type", "beginGame");
-            yyjson_mut_obj_add_str(doc, root, "role", GetRoleStringByRole(pRoom->RoleList[i]));
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "selectTeam");
+        yyjson_mut_val* TeamVal = yyjson_mut_arr_with_uint32(doc, TeamMemberList, TeamMemberCnt);
+        if (!TeamVal)
+            __leave;
+        yyjson_mut_obj_add_val(doc, root, "team", TeamVal);
 
-            if (pRoom->FairyIndex != -1) // Send fairyID if enabled
-            {
-                yyjson_mut_obj_add_uint(doc, root, "fairyID", pRoom->PlayingList[pRoom->FairyIndex].GameID);
-            }
-
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
-        }
-        __finally
-        {
-            yyjson_mut_doc_free(doc);
-        }
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
-    return TRUE;
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastConfirmTeam(_In_ PGAME_ROOM pRoom)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "confirmTeam");
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastVoteTeamProgress(_In_ PGAME_ROOM pRoom, _In_ UINT VotedCnt, _In_ UINT32 VotedIDList[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "voteTeamProgress");
+        yyjson_mut_val* VotedVal = yyjson_mut_arr_with_uint32(doc, VotedIDList, VotedCnt);
+        if (!VotedVal)
+            __leave;
+        yyjson_mut_obj_add_val(doc, root, "voted", VotedVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastVoteTeam(_In_ PGAME_ROOM pRoom, _In_ BOOL bVoteResult, _In_ UINT VoteListCnt, _In_ VOTELIST VoteList[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "voteTeam");
+        yyjson_mut_obj_add_bool(doc, root, "voteResult", bVoteResult);
+
+        yyjson_mut_val* VoteListVal = yyjson_mut_arr(doc);
+        if (!VoteListVal)
+            __leave;
+
+        for (UINT i = 0; i < VoteListCnt; i++)
+        {
+            yyjson_mut_val* VoteVal = yyjson_mut_arr_add_obj(doc, VoteListVal);
+            yyjson_mut_obj_add_uint(doc, VoteVal, "ID", VoteList[i].ID);
+            yyjson_mut_obj_add_bool(doc, VoteVal, "vote", VoteList[i].VoteResult);
+        }
+        yyjson_mut_obj_add_val(doc, root, "voteList", VoteListVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastMissionResultProgress(_In_ PGAME_ROOM pRoom, _In_ UINT DecidedCnt, _In_ UINT32 DecidedIDList[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "missionResultProgress");
+        yyjson_mut_val* DecidedVal = yyjson_mut_arr_with_uint32(doc, DecidedIDList, DecidedCnt);
+        if (!DecidedVal)
+            __leave;
+        yyjson_mut_obj_add_val(doc, root, "decided", DecidedVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastMissionResult(_In_ PGAME_ROOM pRoom, _In_ BOOL bMissionSuccess, _In_ UINT32 Perform, _In_ UINT32 Screw)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "missionResult");
+        yyjson_mut_obj_add_bool(doc, root, "missionSuccess", bMissionSuccess);
+        yyjson_mut_obj_add_uint(doc, root, "perform", Perform);
+        yyjson_mut_obj_add_uint(doc, root, "screw", Screw);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastFairyInspect(_In_ PGAME_ROOM pRoom, _In_ UINT InspectID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "fairyInspect");
+        yyjson_mut_obj_add_uint(doc, root, "ID", InspectID);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastAssassinate(_In_ PGAME_ROOM pRoom, _In_ UINT AssassinateID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "assassinate");
+        yyjson_mut_obj_add_uint(doc, root, "ID", AssassinateID);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastEndGame(_In_ PGAME_ROOM pRoom, _In_ BOOL bWin, _In_z_ CHAR Reason[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "endGame");
+        yyjson_mut_obj_add_bool(doc, root, "win", bWin);
+        yyjson_mut_obj_add_str(doc, root, "reason", Reason);
+
+        yyjson_mut_val* RoleListVal = yyjson_mut_arr(doc);
+        if (!RoleListVal)
+            __leave;
+
+        for (UINT i = 0; i < pRoom->PlayingCount; i++)
+        {
+            yyjson_mut_val* RoleVal = yyjson_mut_arr_add_obj(doc, RoleListVal);
+            yyjson_mut_obj_add_uint(doc, RoleVal, "ID", pRoom->PlayingList[i].GameID);
+            yyjson_mut_obj_add_str(doc, RoleVal, "role", GetRoleString(pRoom->RoleList[i]));
+        }
+        yyjson_mut_obj_add_val(doc, root, "roleList", RoleListVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastTextMessage(_In_ PGAME_ROOM pRoom, _In_ UINT ID, _In_z_ CHAR Message[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "textMessage");
+        yyjson_mut_obj_add_uint(doc, root, "ID", ID);
+        yyjson_mut_obj_add_str(doc, root, "message", Message);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
 }

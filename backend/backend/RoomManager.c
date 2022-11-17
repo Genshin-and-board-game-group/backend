@@ -21,6 +21,22 @@ VOID InitRoomManager(VOID)
     CurrentRoomNum = 0;
 }
 
+// return FALSE when not found in the room.
+// Index is stored in pIndex
+static BOOL GetGamingIndexByID(_In_ PGAME_ROOM pRoom, _In_ UINT ID, _Out_ UINT *pIndex)
+{
+    for (UINT i = 0; i < pRoom->PlayingCount; i++)
+    {
+        if (pRoom->PlayingList[i].GameID == ID)
+        {
+            *pIndex = i;
+            return TRUE;
+        }
+    }
+    *pIndex = 0;
+    return FALSE;
+}
+
 BOOL CreateRoom(
     _Inout_ PCONNECTION_INFO pConnInfo,
     _In_z_ const char* NickName,
@@ -30,19 +46,19 @@ BOOL CreateRoom(
     BOOL bSuccess = TRUE;
     if (pConnInfo->pRoom)
     {
-        return SendCreateRoom(pConnInfo, FALSE, 0, 0, "You are already in a room.");
+        return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "You are already in a room.");
     }
     if (strlen(NickName) > PLAYER_NICK_MAXLEN)
     {
-        return SendCreateRoom(pConnInfo, FALSE, 0, 0, "Nick name too long.");
+        return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "Nick name too long.");
     }
     if (Password)
     {
         if (strlen(Password) > ROOM_PASSWORD_MAXLEN)
-            return SendCreateRoom(pConnInfo, FALSE, 0, 0, "Password too long.");
+            return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "Password too long.");
 
         if (Password[0] == '\0')
-            return SendCreateRoom(pConnInfo, FALSE, 0, 0, "Empty password field.");
+            return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "Empty password field.");
     }
 
     AcquireSRWLockExclusive(&RoomPoolLock);
@@ -50,7 +66,7 @@ BOOL CreateRoom(
     {
         if (CurrentRoomNum == TOT_ROOM_CNT) // all room is full.
         {
-            bSuccess = SendCreateRoom(pConnInfo, FALSE, 0, 0, "All room number is occupied, no room left.");
+            bSuccess = ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "All room number is occupied, no room left.");
             __leave;
         }
 
@@ -89,13 +105,14 @@ BOOL CreateRoom(
 
         RoomList[pRoom->RoomNumber] = pRoom;
 
-        Log(LOG_INFO, "room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
+        Log(LOG_INFO, L"room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
-        bSuccess = SendCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL);
+        if (!ReplyCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL))
+            __leave;
 
-        // TODO: I'm not sure what should I do if anything went wrong when broadcasting...
-        // so I ignored the return value for now
-        BroadcastRoomStatus(pRoom);
+        if (!BroadcastRoomStatus(pRoom))
+            __leave;
+        bSuccess = TRUE;
     }
     __finally
     {
@@ -113,17 +130,17 @@ BOOL JoinRoom(
 {
     BOOL bSuccess = TRUE;
     if (pConnInfo->pRoom)
-        return SendJoinRoom(pConnInfo, FALSE, 0, "You are already in a room.");
+        return ReplyJoinRoom(pConnInfo, FALSE, 0, "You are already in a room.");
 
     if (strlen(NickName) > PLAYER_NICK_MAXLEN)
-        return SendJoinRoom(pConnInfo, FALSE, 0, "Nick name too long.");
+        return ReplyJoinRoom(pConnInfo, FALSE, 0, "Nick name too long.");
 
     AcquireSRWLockShared(&RoomPoolLock);
     __try
     {
         if (!RoomList[RoomNum])
         {
-            SendJoinRoom(pConnInfo, FALSE, 0, "Room does not exist.");
+            ReplyJoinRoom(pConnInfo, FALSE, 0, "Room does not exist.");
             __leave;
         }
 
@@ -134,12 +151,12 @@ BOOL JoinRoom(
         {
             if (!Password)
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "Password is required.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "Password is required.");
                 __leave;
             }
             if (strcmp(Password, pRoom->Password))
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "Wrong password.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "Wrong password.");
                 __leave;
             }
         }
@@ -150,13 +167,13 @@ BOOL JoinRoom(
         {
             if (pRoom->bGaming)
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "The game has started already.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "The game has started already.");
                 __leave;
             }
 
             if (pRoom->WaitingCount == ROOM_PLAYER_MAX)
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "The room is full.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "The room is full.");
                 __leave;
             }
 
@@ -164,7 +181,7 @@ BOOL JoinRoom(
             {
                 if (strcmp(NickName, pRoom->WaitingList[i].NickName) == 0)
                 {
-                    SendJoinRoom(pConnInfo, FALSE, 0, "Duplicate nickname, try another.");
+                    ReplyJoinRoom(pConnInfo, FALSE, 0, "Duplicate nickname, try another.");
                     __leave;
                 }
             }
@@ -182,11 +199,13 @@ BOOL JoinRoom(
             StringCbCopyA(pPlayerWaitingInfo->NickName, PLAYER_NICK_MAXLEN, NickName);
             StringCbCopyA(pPlayerWaitingInfo->Avatar, PLAYER_NICK_MAXLEN, "");
 
-            bSuccess &= SendJoinRoom(pConnInfo, TRUE, pPlayerWaitingInfo->GameID, NULL);
+            if (!ReplyJoinRoom(pConnInfo, TRUE, pPlayerWaitingInfo->GameID, NULL))
+                __leave;
 
-            // TODO: I'm not sure what should I do if anything went wrong when broadcasting...
-            // so I ignored the return value for now
-            BroadcastRoomStatus(pRoom);
+            if (!BroadcastRoomStatus(pRoom))
+                __leave;
+
+            bSuccess = TRUE;
         }
         __finally
         {
@@ -216,7 +235,7 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo)
         LONG64 NewCnt = InterlockedDecrement64(&(pConnInfo->pRoom->RefCnt));
         if (NewCnt == 0)
         {
-            Log(LOG_INFO, "room %1!d! is closed.", pConnInfo->pRoom->RoomNumber + ROOM_NUMBER_MIN);
+            Log(LOG_INFO, L"room %1!d! is closed.", pConnInfo->pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
             EmptyRoomList[TOT_ROOM_CNT - CurrentRoomNum] = pConnInfo->pRoom->RoomNumber;
             CurrentRoomNum--;
@@ -258,24 +277,25 @@ BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar)
 {
     // TODO: add response for ChangeAvatar?
     if (strlen(Avatar) > PLAYER_AVATAR_MAXLEN)
-    {
         return TRUE;
-    }
+
     PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
 
-    if (pRoom->bGaming)
-    {
-        return TRUE; // You can't change avatar when game started.
-    }
     AcquireSRWLockShared(&pRoom->PlayerListLock);
+    __try
+    {
+        if (pRoom->bGaming) // You can't change avatar when game started.
+            __leave;
 
-    StringCbCopyA(pConnInfo->pRoom->WaitingList[pConnInfo->WaitingIndex].Avatar, PLAYER_AVATAR_MAXLEN, Avatar);
-
-    // TODO: I'm not sure what should I do if anything went wrong when broadcasting...
-    // so I ignored the return value for now
-    BroadcastRoomStatus(pRoom);
-    ReleaseSRWLockShared(&pRoom->PlayerListLock);
-    return TRUE;
+        StringCbCopyA(pConnInfo->pRoom->WaitingList[pConnInfo->WaitingIndex].Avatar, PLAYER_AVATAR_MAXLEN, Avatar);
+        bSuccess = BroadcastRoomStatus(pRoom);
+    }
+    __finally
+    {
+        ReleaseSRWLockShared(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 // assign a random role to RoleList based on PlayingCount
@@ -310,7 +330,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     PGAME_ROOM pRoom = pConnInfo->pRoom;
     if (!pRoom)
-        return SendStartGame(pConnInfo, FALSE, "You are not in a room.");
+        return ReplyStartGame(pConnInfo, FALSE, "You are not in a room.");
 
     BOOL bSuccess = FALSE;
     AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
@@ -318,17 +338,17 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
     {
         if (!pRoom->WaitingList[pConnInfo->WaitingIndex].bIsRoomOwner)
         {
-            bSuccess = SendStartGame(pConnInfo, FALSE, "You are not room owner.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "You are not room owner.");
             __leave;
         }
         if (pRoom->WaitingCount < ROOM_PLAYER_MIN)
         {
-            bSuccess = SendStartGame(pConnInfo, FALSE, "Too less player to start game.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "Too less player to start game.");
             __leave;
         }
         if (pRoom->bGaming)
         {
-            bSuccess = SendStartGame(pConnInfo, FALSE, "Game already started.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "Game already started.");
             __leave;
         }
 
@@ -342,8 +362,8 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 
         if (!AssignRole(pRoom))
         {
-            Log(LOG_ERROR, "AssignRole failed.");
-            bSuccess = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
+            Log(LOG_ERROR, L"AssignRole failed.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
             __leave;
         }
 
@@ -355,17 +375,23 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 
         if (pRoom->PlayingCount >= ENABLE_FAIRY_THRESHOLD)
         {
+            pRoom->bFairyEnabled = TRUE;
             pRoom->FairyIndex = (pRoom->LeaderIndex + pRoom->PlayingCount - 1) % (pRoom->PlayingCount);
         }
         else
         {
-            pRoom->FairyIndex = -1;
+            pRoom->bFairyEnabled = FALSE;
+            pRoom->FairyIndex = 0;
         }
         pRoom->bGaming = TRUE;
 
-        bSuccess = SendStartGame(pConnInfo, TRUE, NULL);
+        bSuccess = ReplyStartGame(pConnInfo, TRUE, NULL);
 
-        BroadcastBeginGame(pRoom);
+        for (UINT i = 0; i < pRoom->PlayingCount; i++)
+        {
+            UINT FairyID = pRoom->bFairyEnabled ? pRoom->PlayingList[pRoom->FairyIndex].GameID : 0;
+            SendBeginGame(pRoom->PlayingList[i].pConnInfo, pRoom->RoleList[i], pRoom->bFairyEnabled, FairyID);
+        }
     }
     __finally
     {
@@ -373,4 +399,86 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
     }
 
     return bSuccess;
+}
+
+BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID)
+{
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerAssassinate(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        if (pRoom->RoleList[pConnInfo->PlayingIndex] != ROLE_ASSASSIN)
+        {
+            bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "You are not assassin.");
+            __leave;
+        }
+
+        UINT AssassinateIndex;
+        if (!GetGamingIndexByID(pRoom, AssassinateID, &AssassinateIndex))
+        {
+            bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "Invalid ID.");
+            __leave;
+        }
+
+        if (!ReplyPlayerAssassinate(pConnInfo, TRUE, NULL))
+            __leave;
+        if (pRoom->RoleList[AssassinateIndex] == ROLE_MERLIN)
+        {
+            if (!BroadcastEndGame(pRoom, FALSE, "merlin was assassinated."))
+                __leave;
+        }
+        else
+        {
+            if (!BroadcastEndGame(pRoom, TRUE, "assassin failed to kill merlin."))
+                __leave;
+        }
+        pRoom->bGaming = FALSE;
+        if (!BroadcastRoomStatus(pRoom))
+            __leave;
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
+}
+
+BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
 }

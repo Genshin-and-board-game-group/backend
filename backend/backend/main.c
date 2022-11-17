@@ -1,6 +1,7 @@
 #include "common.h"
 #include "HttpSendRecv.h"
 #include "RoomManager.h"
+#include <locale.h>
 
 #pragma comment(lib, "httpapi.lib")
 #pragma comment(lib, "Websocket.lib")
@@ -38,8 +39,11 @@ DWORD GetRequestCount()
     return wRequestsCounter;
 }
 
-int main()
+int wmain()
 {
+    setlocale(LC_ALL, "");
+    InitLog();
+    Log(LOG_INFO, L"backend started.");
     InitRoomManager();
 
     if (!StartHTTPServer(GetRequestCount()))
@@ -48,14 +52,14 @@ int main()
     }
     while (1)
     {
-        char command[128] = { 0 };
-        scanf_s("%s", command, (UINT)_countof(command));
+        WCHAR command[128] = { 0 };
+        wscanf_s(L"%s", command, (UINT)_countof(command));
 
-        if (strcmp(command, "stop") == 0)
+        if (wcscmp(command, L"stop") == 0)
         {
             break;
         }
-        Log(LOG_ERROR, "unknown command: %1", command);
+        Log(LOG_ERROR, L"unknown command: %1", command);
     }
     StopHTTPServer();
     return 0;

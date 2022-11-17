@@ -3,6 +3,7 @@
 #include "yyjson.h"
 #include "MessageSender.h"
 #include "RoomManager.h"
+#include "MessageHandler.h"
 
 BOOL HandleCreateRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val *pJsonRoot)
 {
@@ -47,20 +48,20 @@ BOOL HandleJoinRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRo
     {
         if (!isdigit(pRoomNumberStr[i]))
         {
-            SendJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
+            ReplyJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
             return TRUE;
         }
         RoomNumber *= 10;
         RoomNumber += pRoomNumberStr[i] - '0';
         if (RoomNumber > ROOM_NUMBER_MAX)
         {
-            SendJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
+            ReplyJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
             return TRUE;
         }
     }
     if (RoomNumber < ROOM_NUMBER_MIN)
     {
-        SendJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
+        ReplyJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
         return TRUE;
     }
 
@@ -83,14 +84,58 @@ BOOL HandleLeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonR
 {
     if (!pConnInfo->pRoom)
     {
-        return SendLeaveRoom(pConnInfo, FALSE, "You are not in a room.");
+        return ReplyLeaveRoom(pConnInfo, FALSE, "You are not in a room.");
     }
 
     LeaveRoom(pConnInfo);
-    return SendLeaveRoom(pConnInfo, TRUE, NULL);
+    return ReplyLeaveRoom(pConnInfo, TRUE, NULL);
 }
 
 BOOL HandleStartGame(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
     return StartGame(pConnInfo);
+}
+
+BOOL HandlePlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    yyjson_val *pAssassinateID = yyjson_obj_get(pJsonRoot, "ID");
+    if (!pAssassinateID)
+        return FALSE;
+
+    if (!yyjson_is_uint(pAssassinateID))
+        return FALSE;
+
+    UINT AssassinateID = yyjson_get_uint(pAssassinateID);
+
+    return PlayerAssassinate(pConnInfo, AssassinateID);
+}
+
+BOOL HandlePlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
 }

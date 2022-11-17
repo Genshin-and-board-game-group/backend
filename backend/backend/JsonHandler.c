@@ -36,7 +36,14 @@ BOOL ParseAndDispatchJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ PBYTE 
             { "joinRoom",     HandleJoinRoom },
             { "changeAvatar", HandleChangeAvatar },
             { "leaveRoom",    HandleLeaveRoom },
-            { "startGame",    HandleStartGame }
+            { "startGame",    HandleStartGame },
+            { "playerSelectTeam",     HandlePlayerSelectTeam },
+            { "playerConfirmTeam",    HandlePlayerConfirmTeam },
+            { "playerVoteTeam",       HandlePlayerVoteTeam },
+            { "playerConductMission", HandlePlayerConductMission },
+            { "playerFairyInspect",   HandlePlayerFairyInspect },
+            { "playerAssassinate",    HandlePlayerAssassinate },
+            { "playerTextMessage",    HandlePlayerTextMessage }
         };
 
         for (SIZE_T i = 0; i < _countof(HandlerList); i++)
@@ -62,6 +69,7 @@ VOID SendJsonCompleteCallback(_In_ PCONNECTION_INFO pConnInfo, _In_ _Frees_ptr_ 
     HeapFree(GetProcessHeap(), 0, pWebsockSendBuf);
 }
 
+// NOTE: network error is not considered as an server error and will not return FALSE.
 BOOL SendJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* JsonDoc)
 {
     SIZE_T JsonLen;
@@ -82,8 +90,7 @@ BOOL SendJsonMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_mut_doc* Js
         pWebsockSendbuf->WebsockBuf.Data.pbBuffer = JsonString;
         pWebsockSendbuf->WebsockBuf.Data.ulBufferLength = (ULONG)JsonLen;
 
-        if (!WebsockSendMessage(pConnInfo, pWebsockSendbuf))
-            __leave;
+        WebsockSendMessage(pConnInfo, pWebsockSendbuf);
 
         bSuccess = TRUE;
     }
