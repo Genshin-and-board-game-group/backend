@@ -46,19 +46,19 @@ BOOL CreateRoom(
     BOOL bSuccess = TRUE;
     if (pConnInfo->pRoom)
     {
-        return SendCreateRoom(pConnInfo, FALSE, 0, 0, "You are already in a room.");
+        return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "You are already in a room.");
     }
     if (strlen(NickName) > PLAYER_NICK_MAXLEN)
     {
-        return SendCreateRoom(pConnInfo, FALSE, 0, 0, "Nick name too long.");
+        return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "Nick name too long.");
     }
     if (Password)
     {
         if (strlen(Password) > ROOM_PASSWORD_MAXLEN)
-            return SendCreateRoom(pConnInfo, FALSE, 0, 0, "Password too long.");
+            return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "Password too long.");
 
         if (Password[0] == '\0')
-            return SendCreateRoom(pConnInfo, FALSE, 0, 0, "Empty password field.");
+            return ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "Empty password field.");
     }
 
     AcquireSRWLockExclusive(&RoomPoolLock);
@@ -66,7 +66,7 @@ BOOL CreateRoom(
     {
         if (CurrentRoomNum == TOT_ROOM_CNT) // all room is full.
         {
-            bSuccess = SendCreateRoom(pConnInfo, FALSE, 0, 0, "All room number is occupied, no room left.");
+            bSuccess = ReplyCreateRoom(pConnInfo, FALSE, 0, 0, "All room number is occupied, no room left.");
             __leave;
         }
 
@@ -107,7 +107,7 @@ BOOL CreateRoom(
 
         Log(LOG_INFO, L"room %1!d! is opened.", pRoom->RoomNumber + ROOM_NUMBER_MIN);
 
-        if (!SendCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL))
+        if (!ReplyCreateRoom(pConnInfo, TRUE, pRoom->RoomNumber, 0, NULL))
             __leave;
 
         if (!BroadcastRoomStatus(pRoom))
@@ -130,17 +130,17 @@ BOOL JoinRoom(
 {
     BOOL bSuccess = TRUE;
     if (pConnInfo->pRoom)
-        return SendJoinRoom(pConnInfo, FALSE, 0, "You are already in a room.");
+        return ReplyJoinRoom(pConnInfo, FALSE, 0, "You are already in a room.");
 
     if (strlen(NickName) > PLAYER_NICK_MAXLEN)
-        return SendJoinRoom(pConnInfo, FALSE, 0, "Nick name too long.");
+        return ReplyJoinRoom(pConnInfo, FALSE, 0, "Nick name too long.");
 
     AcquireSRWLockShared(&RoomPoolLock);
     __try
     {
         if (!RoomList[RoomNum])
         {
-            SendJoinRoom(pConnInfo, FALSE, 0, "Room does not exist.");
+            ReplyJoinRoom(pConnInfo, FALSE, 0, "Room does not exist.");
             __leave;
         }
 
@@ -151,12 +151,12 @@ BOOL JoinRoom(
         {
             if (!Password)
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "Password is required.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "Password is required.");
                 __leave;
             }
             if (strcmp(Password, pRoom->Password))
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "Wrong password.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "Wrong password.");
                 __leave;
             }
         }
@@ -167,13 +167,13 @@ BOOL JoinRoom(
         {
             if (pRoom->bGaming)
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "The game has started already.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "The game has started already.");
                 __leave;
             }
 
             if (pRoom->WaitingCount == ROOM_PLAYER_MAX)
             {
-                SendJoinRoom(pConnInfo, FALSE, 0, "The room is full.");
+                ReplyJoinRoom(pConnInfo, FALSE, 0, "The room is full.");
                 __leave;
             }
 
@@ -181,7 +181,7 @@ BOOL JoinRoom(
             {
                 if (strcmp(NickName, pRoom->WaitingList[i].NickName) == 0)
                 {
-                    SendJoinRoom(pConnInfo, FALSE, 0, "Duplicate nickname, try another.");
+                    ReplyJoinRoom(pConnInfo, FALSE, 0, "Duplicate nickname, try another.");
                     __leave;
                 }
             }
@@ -199,7 +199,7 @@ BOOL JoinRoom(
             StringCbCopyA(pPlayerWaitingInfo->NickName, PLAYER_NICK_MAXLEN, NickName);
             StringCbCopyA(pPlayerWaitingInfo->Avatar, PLAYER_NICK_MAXLEN, "");
 
-            if (!SendJoinRoom(pConnInfo, TRUE, pPlayerWaitingInfo->GameID, NULL))
+            if (!ReplyJoinRoom(pConnInfo, TRUE, pPlayerWaitingInfo->GameID, NULL))
                 __leave;
 
             if (!BroadcastRoomStatus(pRoom))
@@ -330,7 +330,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 {
     PGAME_ROOM pRoom = pConnInfo->pRoom;
     if (!pRoom)
-        return SendStartGame(pConnInfo, FALSE, "You are not in a room.");
+        return ReplyStartGame(pConnInfo, FALSE, "You are not in a room.");
 
     BOOL bSuccess = FALSE;
     AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
@@ -338,17 +338,17 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
     {
         if (!pRoom->WaitingList[pConnInfo->WaitingIndex].bIsRoomOwner)
         {
-            bSuccess = SendStartGame(pConnInfo, FALSE, "You are not room owner.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "You are not room owner.");
             __leave;
         }
         if (pRoom->WaitingCount < ROOM_PLAYER_MIN)
         {
-            bSuccess = SendStartGame(pConnInfo, FALSE, "Too less player to start game.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "Too less player to start game.");
             __leave;
         }
         if (pRoom->bGaming)
         {
-            bSuccess = SendStartGame(pConnInfo, FALSE, "Game already started.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "Game already started.");
             __leave;
         }
 
@@ -363,7 +363,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         if (!AssignRole(pRoom))
         {
             Log(LOG_ERROR, L"AssignRole failed.");
-            bSuccess = SendStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
+            bSuccess = ReplyStartGame(pConnInfo, FALSE, "Server internal error. failed to assign role.");
             __leave;
         }
 
@@ -385,7 +385,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         }
         pRoom->bGaming = TRUE;
 
-        bSuccess = SendStartGame(pConnInfo, TRUE, NULL);
+        bSuccess = ReplyStartGame(pConnInfo, TRUE, NULL);
 
         for (UINT i = 0; i < pRoom->PlayingCount; i++)
         {

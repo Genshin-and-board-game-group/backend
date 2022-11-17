@@ -30,7 +30,7 @@ BOOL BroadcastGamingJsonMessage(_In_ PGAME_ROOM pRoom, _In_ yyjson_mut_doc* Json
     return TRUE;
 }
 
-BOOL SendCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT RoomNum, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
+BOOL ReplyCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT RoomNum, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
 {
     char szRoomNumber[10 + 1] = { 0 }; // MAXUINT32 tooks 10 char to store under decimal, without trailing zero.
 
@@ -70,7 +70,7 @@ BOOL SendCreateRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UIN
     return bSuccess;
 }
 
-BOOL SendJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
+BOOL ReplyJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT ID, _In_opt_z_ CHAR* Reason)
 {
     // Create a mutable doc
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -106,7 +106,7 @@ BOOL SendJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT 
     return bSuccess;
 }
 
-BOOL SendLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+BOOL ReplyLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
 {
     // Create a mutable doc
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -138,7 +138,7 @@ BOOL SendLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z
     return bSuccess;
 }
 
-BOOL SendStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+BOOL ReplyStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
 {
     // Create a mutable doc
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);

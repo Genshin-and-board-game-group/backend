@@ -48,20 +48,20 @@ BOOL HandleJoinRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRo
     {
         if (!isdigit(pRoomNumberStr[i]))
         {
-            SendJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
+            ReplyJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
             return TRUE;
         }
         RoomNumber *= 10;
         RoomNumber += pRoomNumberStr[i] - '0';
         if (RoomNumber > ROOM_NUMBER_MAX)
         {
-            SendJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
+            ReplyJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
             return TRUE;
         }
     }
     if (RoomNumber < ROOM_NUMBER_MIN)
     {
-        SendJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
+        ReplyJoinRoom(pConnInfo, FALSE, 0, "incorrect room number");
         return TRUE;
     }
 
@@ -84,11 +84,11 @@ BOOL HandleLeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonR
 {
     if (!pConnInfo->pRoom)
     {
-        return SendLeaveRoom(pConnInfo, FALSE, "You are not in a room.");
+        return ReplyLeaveRoom(pConnInfo, FALSE, "You are not in a room.");
     }
 
     LeaveRoom(pConnInfo);
-    return SendLeaveRoom(pConnInfo, TRUE, NULL);
+    return ReplyLeaveRoom(pConnInfo, TRUE, NULL);
 }
 
 BOOL HandleStartGame(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
