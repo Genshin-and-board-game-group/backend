@@ -7,7 +7,7 @@ static const CHAR* GetRoleString(UINT Role)
 {
     // correspond with the ROLE_* MACRO
     // TODO: assert here
-    static const CHAR* RoleTable[] = { NULL, "ROLE_MERLIN", "PERCIVAL", "ASSASSIN", "MORDRED", "OBERON", "MORGANA", "LOYALIST", "MINIONS" };
+    static const CHAR* RoleTable[] = { NULL, "MERLIN", "PERCIVAL", "ASSASSIN", "MORDRED", "OBERON", "MORGANA", "LOYALIST", "MINIONS" };
     return RoleTable[Role];
 }
 
