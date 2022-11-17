@@ -447,8 +447,8 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
             __leave;
         }
 
-        UINT Index;
-        if (!GetGamingIndexByID(pRoom, ID, &Index))
+        UINT AssassinateIndex;
+        if (!GetGamingIndexByID(pRoom, ID, &AssassinateIndex))
         {
             bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "Invalid ID.");
             __leave;
@@ -456,7 +456,7 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
         if (!ReplyPlayerAssassinate(pConnInfo, TRUE, NULL))
             __leave;
-        if (pRoom->RoleList[Index] == ROLE_MERLIN)
+        if (pRoom->RoleList[AssassinateIndex] == ROLE_MERLIN)
         {
             if (!BroadcastEndGame(pRoom, FALSE, "merlin was assassinated."))
                 __leave;
@@ -478,7 +478,7 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
     return bSuccess;
 }
 
-BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ CHAR Message[])
+BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[])
 {
     return TRUE;
 }

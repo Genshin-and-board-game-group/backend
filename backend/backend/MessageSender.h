@@ -28,7 +28,19 @@ BOOL SendRoleHint(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT HintCnt, _In_ HINTL
 
 BOOL SendSetLeader(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT ID);
 
+BOOL ReplyPlayerSelectTeam(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
+BOOL ReplyPlayerConfirmTeam(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
+BOOL ReplyPlayerVoteTeam(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
+BOOL ReplyPlayerConductMission(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
+BOOL ReplyPlayerFairyInspect(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
 BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
+BOOL ReplyPlayerTextMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
 
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom);
 

@@ -19,6 +19,36 @@ static const CHAR* GetHintTypeString(UINT HintType)
     return HintStrTable[HintType];
 }
 
+static BOOL ReplySimpleMessage(_In_ PCONNECTION_INFO pConnInfo, _In_z_ CHAR szType[], _In_ BOOL bResult, _In_opt_z_ CHAR Reason[])
+{
+    // Create a mutable doc
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", szType);
+        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
+
+        if (!bResult)
+            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
+
+        bSuccess = SendJsonMessage(pConnInfo, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
 // Only sends to player online & gaming
 BOOL BroadcastGamingJsonMessage(_In_ PGAME_ROOM pRoom, _In_ yyjson_mut_doc* JsonDoc)
 {
@@ -108,66 +138,47 @@ BOOL ReplyJoinRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_ UINT
 
 BOOL ReplyLeaveRoom(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
 {
-    // Create a mutable doc
-    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-    if (!doc)
-        return FALSE;
-
-    BOOL bSuccess = FALSE;
-    __try
-    {
-        yyjson_mut_val* root = yyjson_mut_obj(doc);
-        if (!root)
-            __leave;
-        yyjson_mut_doc_set_root(doc, root);
-        yyjson_mut_obj_add_str(doc, root, "type", "leaveRoom");
-        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
-
-        if (!bResult)
-        {
-            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
-        }
-
-        bSuccess = SendJsonMessage(pConnInfo, doc);
-    }
-    __finally
-    {
-        // Free the doc
-        yyjson_mut_doc_free(doc);
-    }
-    return bSuccess;
+    return ReplySimpleMessage(pConnInfo, "leaveRoom", bResult, Reason);
 }
 
 BOOL ReplyStartGame(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
 {
-    // Create a mutable doc
-    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-    if (!doc)
-        return FALSE;
+    return ReplySimpleMessage(pConnInfo, "startGame", bResult, Reason);
+}
 
-    BOOL bSuccess = FALSE;
-    __try
-    {
-        yyjson_mut_val* root = yyjson_mut_obj(doc);
-        if (!root)
-            __leave;
-        yyjson_mut_doc_set_root(doc, root);
-        yyjson_mut_obj_add_str(doc, root, "type", "startGame");
-        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
+BOOL ReplyPlayerSelectTeam(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerSelectTeam", bResult, Reason);
+}
 
-        if (!bResult)
-        {
-            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
-        }
+BOOL ReplyPlayerConfirmTeam(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerConfirmTeam", bResult, Reason);
+}
 
-        bSuccess = SendJsonMessage(pConnInfo, doc);
-    }
-    __finally
-    {
-        // Free the doc
-        yyjson_mut_doc_free(doc);
-    }
-    return bSuccess;
+BOOL ReplyPlayerVoteTeam(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerVoteTeam", bResult, Reason);
+}
+
+BOOL ReplyPlayerConductMission(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerConductMission", bResult, Reason);
+}
+
+BOOL ReplyPlayerFairyInspect(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerFairyInspect", bResult, Reason);
+}
+
+BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerAssassinate", bResult, Reason);
+}
+
+BOOL ReplyPlayerTextMessage(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    return ReplySimpleMessage(pConnInfo, "playerTextMessage", bResult, Reason);
 }
 
 BOOL SendBeginGame(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT Role, _In_ BOOL bFairyEnabled, _In_ UINT FairyID)
@@ -254,38 +265,6 @@ BOOL SendSetLeader(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "setLeader");
         yyjson_mut_obj_add_uint(doc, root, "ID", ID);
-
-        bSuccess = SendJsonMessage(pConnInfo, doc);
-    }
-    __finally
-    {
-        // Free the doc
-        yyjson_mut_doc_free(doc);
-    }
-    return bSuccess;
-}
-
-BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
-{
-    // Create a mutable doc
-    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-    if (!doc)
-        return FALSE;
-
-    BOOL bSuccess = FALSE;
-    __try
-    {
-        yyjson_mut_val* root = yyjson_mut_obj(doc);
-        if (!root)
-            __leave;
-        yyjson_mut_doc_set_root(doc, root);
-        yyjson_mut_obj_add_str(doc, root, "type", "playerAssassinate");
-        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
-
-        if (!bResult)
-        {
-            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
-        }
 
         bSuccess = SendJsonMessage(pConnInfo, doc);
     }

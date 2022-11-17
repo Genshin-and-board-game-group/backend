@@ -92,4 +92,4 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID);
 
 BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID);
 
-BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ CHAR Message[]);
+BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[]);

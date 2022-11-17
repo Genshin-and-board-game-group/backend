@@ -106,17 +106,17 @@ BOOL HandlePlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val*
 
     yyjson_val* val;
     yyjson_arr_iter iter;
-    UINT Size = unsafe_yyjson_get_len(pTeam);
+    SIZE_T Size = unsafe_yyjson_get_len(pTeam);
     if (Size > ROOM_PLAYER_MAX)
         return FALSE;
     yyjson_arr_iter_init(pTeam, &iter);
     while ((val = yyjson_arr_iter_next(&iter))) {
         if (!yyjson_is_uint(val))
             return FALSE;
-        TeamArr[iter.idx] = yyjson_get_uint(val);
+        TeamArr[iter.idx] = (UINT)yyjson_get_uint(val);
     }
 
-    return PlayerSelectTeam(pConnInfo, Size, TeamArr);
+    return PlayerSelectTeam(pConnInfo, (UINT)Size, TeamArr);
 }
 
 BOOL HandlePlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
@@ -150,7 +150,7 @@ BOOL HandlePlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_va
     if (!yyjson_is_uint(pID))
         return FALSE;
 
-    UINT ID = unsafe_yyjson_get_uint(pID);
+    UINT ID = (UINT)unsafe_yyjson_get_uint(pID);
     return PlayerFairyInspect(pConnInfo, ID);
 }
 
@@ -160,7 +160,7 @@ BOOL HandlePlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val
     if (!yyjson_is_uint(pID))
         return FALSE;
 
-    UINT ID = yyjson_get_uint(pID);
+    UINT ID = (UINT)yyjson_get_uint(pID);
     return PlayerAssassinate(pConnInfo, ID);
 }
 
