@@ -3,6 +3,7 @@
 #include "yyjson.h"
 #include "MessageSender.h"
 #include "RoomManager.h"
+#include "MessageHandler.h"
 
 BOOL HandleCreateRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val *pJsonRoot)
 {
@@ -93,4 +94,48 @@ BOOL HandleLeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonR
 BOOL HandleStartGame(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
 {
     return StartGame(pConnInfo);
+}
+
+BOOL HandlePlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
+}
+
+BOOL HandlePlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    yyjson_val *pAssassinateID = yyjson_obj_get(pJsonRoot, "ID");
+    if (!pAssassinateID)
+        return FALSE;
+
+    if (!yyjson_is_uint(pAssassinateID))
+        return FALSE;
+
+    UINT AssassinateID = yyjson_get_uint(pAssassinateID);
+
+    return PlayerAssassinate(pConnInfo, AssassinateID);
+}
+
+BOOL HandlePlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val* pJsonRoot)
+{
+    return TRUE;
 }

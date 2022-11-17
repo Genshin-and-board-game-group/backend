@@ -21,6 +21,22 @@ VOID InitRoomManager(VOID)
     CurrentRoomNum = 0;
 }
 
+// return FALSE when not found in the room.
+// Index is stored in pIndex
+static BOOL GetGamingIndexByID(_In_ PGAME_ROOM pRoom, _In_ UINT ID, _Out_ UINT *pIndex)
+{
+    for (UINT i = 0; i < pRoom->PlayingCount; i++)
+    {
+        if (pRoom->PlayingList[i].GameID == ID)
+        {
+            *pIndex = i;
+            return TRUE;
+        }
+    }
+    *pIndex = 0;
+    return FALSE;
+}
+
 BOOL CreateRoom(
     _Inout_ PCONNECTION_INFO pConnInfo,
     _In_z_ const char* NickName,
@@ -258,24 +274,25 @@ BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar)
 {
     // TODO: add response for ChangeAvatar?
     if (strlen(Avatar) > PLAYER_AVATAR_MAXLEN)
-    {
         return TRUE;
-    }
+
     PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
 
-    if (pRoom->bGaming)
-    {
-        return TRUE; // You can't change avatar when game started.
-    }
     AcquireSRWLockShared(&pRoom->PlayerListLock);
+    __try
+    {
+        if (pRoom->bGaming) // You can't change avatar when game started.
+            __leave;
 
-    StringCbCopyA(pConnInfo->pRoom->WaitingList[pConnInfo->WaitingIndex].Avatar, PLAYER_AVATAR_MAXLEN, Avatar);
-
-    // TODO: I'm not sure what should I do if anything went wrong when broadcasting...
-    // so I ignored the return value for now
-    BroadcastRoomStatus(pRoom);
-    ReleaseSRWLockShared(&pRoom->PlayerListLock);
-    return TRUE;
+        StringCbCopyA(pConnInfo->pRoom->WaitingList[pConnInfo->WaitingIndex].Avatar, PLAYER_AVATAR_MAXLEN, Avatar);
+        bSuccess = BroadcastRoomStatus(pRoom);
+    }
+    __finally
+    {
+        ReleaseSRWLockShared(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 // assign a random role to RoleList based on PlayingCount
@@ -379,4 +396,86 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
     }
 
     return bSuccess;
+}
+
+BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
+}
+
+BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID)
+{
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerAssassinate(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        if (pRoom->RoleList[pConnInfo->PlayingIndex] != ROLE_ASSASSIN)
+        {
+            bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "You are not assassin.");
+            __leave;
+        }
+
+        UINT AssassinateIndex;
+        if (!GetGamingIndexByID(pRoom, AssassinateID, &AssassinateIndex))
+        {
+            bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "Invalid ID.");
+            __leave;
+        }
+
+        if (!ReplyPlayerAssassinate(pConnInfo, TRUE, NULL))
+            __leave;
+        if (pRoom->RoleList[AssassinateIndex] == ROLE_MERLIN)
+        {
+            if (!BroadcastEndGame(pRoom, FALSE, "merlin was assassinated."))
+                __leave;
+        }
+        else
+        {
+            if (!BroadcastEndGame(pRoom, TRUE, "assassin failed to kill merlin."))
+                __leave;
+        }
+        pRoom->bGaming = FALSE;
+        if (!BroadcastRoomStatus(pRoom))
+            __leave;
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
+}
+
+BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo)
+{
+    return TRUE;
 }

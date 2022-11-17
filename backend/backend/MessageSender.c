@@ -265,6 +265,38 @@ BOOL SendSetLeader(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
     return bSuccess;
 }
 
+BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason)
+{
+    // Create a mutable doc
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "playerAssassinate");
+        yyjson_mut_obj_add_str(doc, root, "result", bResult ? "success" : "fail");
+
+        if (!bResult)
+        {
+            yyjson_mut_obj_add_str(doc, root, "reason", Reason);
+        }
+
+        bSuccess = SendJsonMessage(pConnInfo, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
 {
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -312,7 +344,8 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
 
         for (UINT i = 0; i < pRoom->WaitingCount; i++) // this is also currently online user
         {
-            SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc);
+            if (!SendJsonMessage(pRoom->WaitingList[i].pConnInfo, doc))
+                __leave;
         }
         bSuccess = TRUE;
     }

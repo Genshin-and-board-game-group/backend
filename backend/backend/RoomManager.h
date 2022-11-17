@@ -79,3 +79,6 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo);
 BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar);
 
 BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo);
+
+
+BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID);

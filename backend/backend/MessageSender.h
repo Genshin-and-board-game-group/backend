@@ -28,6 +28,8 @@ BOOL SendRoleHint(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT HintCnt, _In_ HINTL
 
 BOOL SendSetLeader(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT ID);
 
+BOOL ReplyPlayerAssassinate(_In_ PCONNECTION_INFO pConnInfo, _In_ BOOL bResult, _In_opt_z_ CHAR* Reason);
+
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom);
 
 BOOL BroadcastSelectTeam(_In_ PGAME_ROOM pRoom, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[]);
