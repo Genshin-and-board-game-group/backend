@@ -401,7 +401,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
     return bSuccess;
 }
 
-BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[])
 {
     return TRUE;
 }
@@ -411,22 +411,22 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
     return TRUE;
 }
 
-BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo)
+BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
 {
     return TRUE;
 }
 
-BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo)
+BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform)
 {
     return TRUE;
 }
 
-BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo)
+BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 {
     return TRUE;
 }
 
-BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID)
+BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 {
     PGAME_ROOM pRoom = pConnInfo->pRoom;
     BOOL bSuccess = FALSE;
@@ -448,7 +448,7 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT Assassinate
         }
 
         UINT AssassinateIndex;
-        if (!GetGamingIndexByID(pRoom, AssassinateID, &AssassinateIndex))
+        if (!GetGamingIndexByID(pRoom, ID, &AssassinateIndex))
         {
             bSuccess = ReplyPlayerAssassinate(pConnInfo, FALSE, "Invalid ID.");
             __leave;
@@ -478,7 +478,7 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT Assassinate
     return bSuccess;
 }
 
-BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo)
+BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[])
 {
     return TRUE;
 }
