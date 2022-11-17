@@ -23,6 +23,15 @@
 
 #define ENABLE_FAIRY_THRESHOLD 7 // fairy will be enabled when player >= ENABLE_FAIRY_THRESHOLD
 
+// Hint definition
+#define HINT_GOOD               1
+#define HINT_BAD                2
+#define HINT_MERLIN_OR_MORGANA  3
+#define HINT_ASSASSIN           4
+#define HINT_MORDRED            5
+#define HINT_MORGANA            6
+#define HINT_MINIONS            7
+
 typedef struct _CONNECTION_INFO CONNECTION_INFO, * PCONNECTION_INFO;
 
 typedef struct _PLAYER_INFO
@@ -55,7 +64,8 @@ typedef struct _GAME_ROOM
     UINT RoleList[ROOM_PLAYER_MAX];
 
     UINT LeaderIndex; // current leader
-    INT FairyIndex;   // -1 means fairy is not enabled.
+    BOOL bFairyEnabled;
+    UINT FairyIndex;
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);
@@ -69,3 +79,17 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo);
 BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar);
 
 BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo);
+
+BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[]);
+
+BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo);
+
+BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote);
+
+BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform);
+
+BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID);
+
+BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID);
+
+BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[]);
