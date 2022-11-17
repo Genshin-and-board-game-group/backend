@@ -222,9 +222,9 @@ BOOL SendRoleHint(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT HintCnt, _In_ HINTL
 
         for (UINT i = 0; i < HintCnt; i++)
         {
-            yyjson_mut_val* Hint = yyjson_mut_arr_add_obj(doc, HintListVal);
-            yyjson_mut_obj_add_uint(doc, Hint, "ID", HintList[i].ID);
-            yyjson_mut_obj_add_str(doc, Hint, "HintType", GetHintTypeString(HintList[i].HintType));
+            yyjson_mut_val* HintVal = yyjson_mut_arr_add_obj(doc, HintListVal);
+            yyjson_mut_obj_add_uint(doc, HintVal, "ID", HintList[i].ID);
+            yyjson_mut_obj_add_str(doc, HintVal, "HintType", GetHintTypeString(HintList[i].HintType));
         }
         yyjson_mut_obj_add_val(doc, root, "HintList", HintListVal);
 
@@ -410,7 +410,7 @@ BOOL BroadcastVoteTeamProgress(_In_ PGAME_ROOM pRoom, _In_ UINT VotedCnt, _In_ U
     return bSuccess;
 }
 
-BOOL BroadcastVoteTeam(_In_ PGAME_ROOM pRoom, _In_ UINT VoteListCnt, _In_ VOTELIST VoteList[])
+BOOL BroadcastVoteTeam(_In_ PGAME_ROOM pRoom, _In_ BOOL bVoteResult, _In_ UINT VoteListCnt, _In_ VOTELIST VoteList[])
 {
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
     if (!doc)
@@ -425,6 +425,7 @@ BOOL BroadcastVoteTeam(_In_ PGAME_ROOM pRoom, _In_ UINT VoteListCnt, _In_ VOTELI
 
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "voteTeam");
+        yyjson_mut_obj_add_bool(doc, root, "voteResult", bVoteResult);
 
         yyjson_mut_val* VoteListVal = yyjson_mut_arr(doc);
         if (!VoteListVal)
@@ -432,11 +433,192 @@ BOOL BroadcastVoteTeam(_In_ PGAME_ROOM pRoom, _In_ UINT VoteListCnt, _In_ VOTELI
 
         for (UINT i = 0; i < VoteListCnt; i++)
         {
-            yyjson_mut_val* Hint = yyjson_mut_arr_add_obj(doc, VoteListVal);
-            yyjson_mut_obj_add_uint(doc, Hint, "ID", VoteList[i].ID);
-            yyjson_mut_obj_add_bool(doc, Hint, "vote", VoteList[i].VoteResult);
+            yyjson_mut_val* VoteVal = yyjson_mut_arr_add_obj(doc, VoteListVal);
+            yyjson_mut_obj_add_uint(doc, VoteVal, "ID", VoteList[i].ID);
+            yyjson_mut_obj_add_bool(doc, VoteVal, "vote", VoteList[i].VoteResult);
         }
         yyjson_mut_obj_add_val(doc, root, "voteList", VoteListVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastMissionResultProgress(_In_ PGAME_ROOM pRoom, _In_ UINT DecidedCnt, _In_ UINT32 DecidedIDList[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "missionResultProgress");
+        yyjson_mut_val* DecidedVal = yyjson_mut_arr_with_uint32(doc, DecidedIDList, DecidedCnt);
+        if (!DecidedVal)
+            __leave;
+        yyjson_mut_obj_add_val(doc, root, "decided", DecidedVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastMissionResult(_In_ PGAME_ROOM pRoom, _In_ BOOL bMissionSuccess, _In_ UINT32 Perform, _In_ UINT32 Screw)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "missionResult");
+        yyjson_mut_obj_add_bool(doc, root, "missionSuccess", bMissionSuccess);
+        yyjson_mut_obj_add_uint(doc, root, "perform", Perform);
+        yyjson_mut_obj_add_uint(doc, root, "screw", Screw);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastFairyInspect(_In_ PGAME_ROOM pRoom, _In_ UINT InspectID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "fairyInspect");
+        yyjson_mut_obj_add_uint(doc, root, "ID", InspectID);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastAssassinate(_In_ PGAME_ROOM pRoom, _In_ UINT AssassinateID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "assassinate");
+        yyjson_mut_obj_add_uint(doc, root, "ID", AssassinateID);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastEndGame(_In_ PGAME_ROOM pRoom, _In_ BOOL bWin, _In_z_ CHAR Reason[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "endGame");
+        yyjson_mut_obj_add_bool(doc, root, "win", bWin);
+        yyjson_mut_obj_add_str(doc, root, "reason", Reason);
+
+        yyjson_mut_val* RoleListVal = yyjson_mut_arr(doc);
+        if (!RoleListVal)
+            __leave;
+
+        for (UINT i = 0; i < pRoom->PlayingCount; i++)
+        {
+            yyjson_mut_val* RoleVal = yyjson_mut_arr_add_obj(doc, RoleListVal);
+            yyjson_mut_obj_add_uint(doc, RoleVal, "ID", pRoom->PlayingList[i].GameID);
+            yyjson_mut_obj_add_str(doc, RoleVal, "role", GetRoleString(pRoom->RoleList[i]));
+        }
+        yyjson_mut_obj_add_val(doc, root, "roleList", RoleListVal);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastTextMessage(_In_ PGAME_ROOM pRoom, _In_ UINT ID, _In_z_ CHAR Message[])
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "textMessage");
+        yyjson_mut_obj_add_uint(doc, root, "ID", ID);
+        yyjson_mut_obj_add_str(doc, root, "message", Message);
 
         bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
