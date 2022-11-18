@@ -473,7 +473,7 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
     }
     __finally
     {
-        AcquireSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
     }
     return bSuccess;
 }
