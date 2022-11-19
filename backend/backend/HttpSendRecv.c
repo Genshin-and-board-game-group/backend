@@ -152,7 +152,9 @@ BOOL StartHTTPServer(DWORD RequestCount)
             __leave;
         }
 
-        ret = HttpAddUrlToUrlGroup(UrlGroupID, L"http://+:80/api", 0, 0);
+        WCHAR WebsocketListenURL[] = L"http://+:80/api";
+        Log(LOG_INFO, L"listening on URL %1 for Websocket API", WebsocketListenURL);
+        ret = HttpAddUrlToUrlGroup(UrlGroupID, WebsocketListenURL, 0, 0);
         if (ret != NO_ERROR)
         {
             LogErrorMessage(L"HttpAddUrlToUrlGroup", ret);
