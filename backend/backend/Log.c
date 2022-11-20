@@ -1,5 +1,6 @@
 #include "common.h"
 #include "Log.h"
+#include <locale.h>
 
 #define LOG_DEFAULT L"\x1b[0m"
 #define LOG_BOLD    L"\x1b[1m"
@@ -12,6 +13,7 @@ BOOL EnableVT = FALSE;
 
 VOID InitLog()
 {
+    setlocale(LC_ALL, "");
     // enable VT Sequnce output explicitly.
     DWORD ConsoleMode;
     if (!GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &ConsoleMode))

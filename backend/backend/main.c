@@ -1,7 +1,6 @@
 #include "common.h"
 #include "HttpSendRecv.h"
 #include "RoomManager.h"
-#include <locale.h>
 
 #pragma comment(lib, "httpapi.lib")
 #pragma comment(lib, "Websocket.lib")
@@ -39,14 +38,27 @@ DWORD GetRequestCount()
     return wRequestsCounter;
 }
 
-int wmain()
+int wmain(INT argc, WCHAR ** argv)
 {
-    setlocale(LC_ALL, "");
     InitLog();
+
+    WCHAR* WebsocketListenURL = L"http://+:80/api";
+    if (argc > 2)
+    {
+        Log(LOG_ERROR, L"Usage: %1 <Websocket URL>", argv[0]);
+        return 1;
+    }
+    if (argc == 2)
+    {
+        WebsocketListenURL = argv[1];
+    }
+
     Log(LOG_INFO, L"backend started.");
     InitRoomManager();
 
-    if (!StartHTTPServer(GetRequestCount()))
+    Log(LOG_INFO, L"listening on URL %1 for Websocket API", WebsocketListenURL);
+
+    if (!StartHTTPServer(GetRequestCount(), WebsocketListenURL))
     {
         return 1;
     }

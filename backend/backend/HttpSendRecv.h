@@ -27,7 +27,7 @@ typedef struct _WEBSOCK_SENDBUF
     WEBSOCK_SEND_CALLBACK Callback;
 }WEBSOCK_SEND_BUF, *PWEBSOCK_SEND_BUF;
 
-BOOL StartHTTPServer(DWORD RequestCount);
+BOOL StartHTTPServer(DWORD RequestCount, LPCWSTR lpListenURL);
 
 VOID StopHTTPServer(VOID);
 

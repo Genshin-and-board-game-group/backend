@@ -114,7 +114,7 @@ static HTTP_SERVER_SESSION_ID ServerSessionID = 0;
 static HTTP_URL_GROUP_ID UrlGroupID = 0;
 static PTP_IO pHTTPRequestIO = NULL;
 
-BOOL StartHTTPServer(DWORD RequestCount)
+BOOL StartHTTPServer(DWORD RequestCount, LPCWSTR lpListenURL)
 {
     HTTPAPI_VERSION HttpApiVersion = HTTPAPI_VERSION_2;
     ULONG ret;
@@ -152,9 +152,7 @@ BOOL StartHTTPServer(DWORD RequestCount)
             __leave;
         }
 
-        WCHAR WebsocketListenURL[] = L"http://+:80/api";
-        Log(LOG_INFO, L"listening on URL %1 for Websocket API", WebsocketListenURL);
-        ret = HttpAddUrlToUrlGroup(UrlGroupID, WebsocketListenURL, 0, 0);
+        ret = HttpAddUrlToUrlGroup(UrlGroupID, lpListenURL, 0, 0);
         if (ret != NO_ERROR)
         {
             LogErrorMessage(L"HttpAddUrlToUrlGroup", ret);
