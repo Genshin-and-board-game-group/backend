@@ -403,27 +403,212 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 
 BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[])
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try {
+        // check bGaming
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        // check the leader
+        if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not the leader.");
+            __leave;
+        }
+        // check the number of people
+        // 
+        // TODO: fix wrong count
+        if ( TeamMemberCnt > pRoom->PlayingCount )
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
+            __leave;
+        }
+        if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL))
+            __leave;
+        if (!BroadcastSelectTeam(pRoom, TeamMemberCnt, TeamMemberList ))
+            __leave;
+        pConnInfo->pRoom->TeamMemberCnt = TeamMemberCnt;
+        for (int i = 0; i < TeamMemberCnt; i++)
+            pConnInfo->pRoom->TeamMemberList[i] = TeamMemberList[i];
+        bSuccess = TRUE;
+    }
+    __finally{
+        ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try {
+        // check bGaming
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+
+        // check the leader
+        if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "You are not the leader.");
+            __leave;
+        }
+
+        // TODO: fix wrong count
+        if (pRoom->TeamMemberCnt == pRoom->PlayingCount)
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
+            __leave;
+        }
+
+        if (!ReplyPlayerConfirmTeam(pConnInfo, TRUE, NULL))
+            __leave;
+        if (!BroadcastConfirmTeam(pRoom))
+            __leave;
+        bSuccess = TRUE;
+    }
+    __finally {
+        ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in a room.");
+
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try {
+        // check bGaming
+        
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        for (int i = 0; i < pRoom->VotedCount; i++) {
+            if (pRoom->VotedIDList[i].ID == pConnInfo->PlayingIndex) {
+                bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You voted");
+                __leave;
+            }
+        }
+        if (!ReplyPlayerVoteTeam(pConnInfo, TRUE, NULL))
+            __leave;
+        pRoom->VotedIDList[pRoom->VotedCount++] = (VOTELIST){ pConnInfo->PlayingIndex ,bVote };
+        
+        if (!BroadcastVoteTeamProgress(pRoom, pRoom->VotedCount, pRoom->VotedIDList))
+            __leave;
+        if (pRoom->VotedCount == pRoom->PlayingCount) {
+            UINT cnt = 0;
+            for (int i = 0; i < pRoom->VotedCount; i++) {
+                cnt += pRoom->VotedIDList[i].VoteResult;
+            }
+            if (!BroadcastVoteTeam(pRoom, cnt+cnt > pRoom->PlayingCount, pRoom->VotedCount, pRoom->VotedIDList));
+                __leave;
+            pRoom->VotedCount = 0;
+        }
+        bSuccess = TRUE;
+    }
+    __finally {
+        ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerConductMission(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+
+        if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL))
+            __leave;
+        
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerFairyInspect(pConnInfo, FALSE, "You are not in a room.");
+    if (!pRoom->bFairyEnabled)
+        return ReplyPlayerFairyInspect(pConnInfo, FALSE, "The room doesn't have the fairy.");
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        if (pConnInfo->PlayingIndex != pRoom->FairyIndex)
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You are not fairy.");
+            __leave;
+        }
+
+        UINT CheckIndex;
+        if (!GetGamingIndexByID(pRoom, ID, &CheckIndex))
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "Invalid ID.");
+            __leave;
+        }
+
+        if (!ReplyPlayerFairyInspect(pConnInfo, TRUE, NULL))
+            __leave;
+        if (pRoom->RoleList[CheckIndex] == HINT_GOOD )
+        {
+
+        }
+        else
+        {
+
+        }
+        if(!BroadcastFairyInspect(pRoom,ID))
+            __leave;
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
@@ -480,5 +665,28 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
 BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[])
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerTextMessage(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerTextMessage(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        if (!ReplyPlayerTextMessage(pConnInfo, TRUE, NULL))
+            __leave;
+        if (!BroadcastTextMessage(pRoom, pConnInfo->PlayingIndex , Message))
+            __leave;
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }

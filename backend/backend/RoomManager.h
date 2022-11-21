@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "MessageSender.h"
 
 #define ROOM_NUMBER_MIN 10000
 #define ROOM_NUMBER_MAX 99999
@@ -63,9 +64,17 @@ typedef struct _GAME_ROOM
 
     UINT RoleList[ROOM_PLAYER_MAX];
 
+    UINT VotedCount;
+    VOTELIST VotedIDList[ROOM_PLAYER_MAX];
+
+    UINT Vote[ROOM_PLAYER_MAX];
     UINT LeaderIndex; // current leader
     BOOL bFairyEnabled;
     UINT FairyIndex;
+
+    UINT TeamMemberCnt;
+    UINT TeamMemberList[ROOM_PLAYER_MAX];
+
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);
