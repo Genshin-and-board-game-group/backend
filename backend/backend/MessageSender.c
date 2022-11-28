@@ -250,33 +250,6 @@ BOOL SendRoleHint(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT HintCnt, _In_ HINTL
     return bSuccess;
 }
 
-BOOL SendSetLeader(_In_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
-{
-    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-    if (!doc)
-        return FALSE;
-
-    BOOL bSuccess = FALSE;
-    __try
-    {
-        yyjson_mut_val* root = yyjson_mut_obj(doc);
-        if (!root)
-            __leave;
-
-        yyjson_mut_doc_set_root(doc, root);
-        yyjson_mut_obj_add_str(doc, root, "type", "setLeader");
-        yyjson_mut_obj_add_uint(doc, root, "ID", ID);
-
-        bSuccess = SendJsonMessage(pConnInfo, doc);
-    }
-    __finally
-    {
-        // Free the doc
-        yyjson_mut_doc_free(doc);
-    }
-    return bSuccess;
-}
-
 BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
 {
     yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -328,6 +301,33 @@ BOOL BroadcastRoomStatus(_In_ PGAME_ROOM pRoom)
                 __leave;
         }
         bSuccess = TRUE;
+    }
+    __finally
+    {
+        // Free the doc
+        yyjson_mut_doc_free(doc);
+    }
+    return bSuccess;
+}
+
+BOOL BroadcastSetLeader(_In_ PGAME_ROOM pRoom, _In_ UINT ID)
+{
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc)
+        return FALSE;
+
+    BOOL bSuccess = FALSE;
+    __try
+    {
+        yyjson_mut_val* root = yyjson_mut_obj(doc);
+        if (!root)
+            __leave;
+
+        yyjson_mut_doc_set_root(doc, root);
+        yyjson_mut_obj_add_str(doc, root, "type", "setLeader");
+        yyjson_mut_obj_add_uint(doc, root, "ID", ID);
+
+        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
     __finally
     {
@@ -537,33 +537,6 @@ BOOL BroadcastFairyInspect(_In_ PGAME_ROOM pRoom, _In_ UINT InspectID)
         yyjson_mut_doc_set_root(doc, root);
         yyjson_mut_obj_add_str(doc, root, "type", "fairyInspect");
         yyjson_mut_obj_add_uint(doc, root, "ID", InspectID);
-
-        bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
-    }
-    __finally
-    {
-        // Free the doc
-        yyjson_mut_doc_free(doc);
-    }
-    return bSuccess;
-}
-
-BOOL BroadcastAssassinate(_In_ PGAME_ROOM pRoom, _In_ UINT AssassinateID)
-{
-    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
-    if (!doc)
-        return FALSE;
-
-    BOOL bSuccess = FALSE;
-    __try
-    {
-        yyjson_mut_val* root = yyjson_mut_obj(doc);
-        if (!root)
-            __leave;
-
-        yyjson_mut_doc_set_root(doc, root);
-        yyjson_mut_obj_add_str(doc, root, "type", "assassinate");
-        yyjson_mut_obj_add_uint(doc, root, "ID", AssassinateID);
 
         bSuccess = BroadcastGamingJsonMessage(pRoom, doc);
     }
