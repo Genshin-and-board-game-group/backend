@@ -2,6 +2,7 @@
 #include "yyjson.h"
 #include "JsonHandler.h"
 #include "MessageSender.h"
+#include "RoomManager.h"
 
 static const CHAR* GetRoleString(UINT Role)
 {
