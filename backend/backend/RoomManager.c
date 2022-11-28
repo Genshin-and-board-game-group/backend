@@ -410,12 +410,14 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
 
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
-        // check bGaming
         if (!pRoom->bGaming)
         {
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
+
+        // TODO: 检查当前是否是队长选择队员的游戏阶段
+
         // check the leader
         if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
         {
@@ -423,13 +425,14 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
             __leave;
         }
         // check the number of people
-        // 
         // TODO: fix wrong count
         if ( TeamMemberCnt > pRoom->PlayingCount )
         {
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
             __leave;
         }
+        // TODO: 检查 TeamMemberList 中的 ID 是否都有效
+
         if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL))
             __leave;
         if (!BroadcastSelectTeam(pRoom, TeamMemberCnt, TeamMemberList ))
@@ -460,6 +463,8 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
+
+        // TODO: 检查当前是否是队长选择队员的游戏阶段
 
         // check the leader
         if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
@@ -497,16 +502,17 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
 
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
-        // check bGaming
-        
         if (!pRoom->bGaming)
         {
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
+        
+        // TODO: 检查当前是否是玩家投票阶段
+
         for (int i = 0; i < pRoom->VotedCount; i++) {
             if (pRoom->VotedIDList[i].ID == pConnInfo->PlayingIndex) {
-                bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You voted");
+                bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You've already voted.");
                 __leave;
             }
         }
@@ -521,7 +527,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             for (int i = 0; i < pRoom->VotedCount; i++) {
                 cnt += pRoom->VotedIDList[i].VoteResult;
             }
-            if (!BroadcastVoteTeam(pRoom, cnt+cnt > pRoom->PlayingCount, pRoom->VotedCount, pRoom->VotedIDList));
+            if (!BroadcastVoteTeam(pRoom, cnt+cnt > pRoom->PlayingCount,pRoom->VotedCount, pRoom->VotedIDList));
                 __leave;
             pRoom->VotedCount = 0;
         }
@@ -548,6 +554,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
+
+        // TODO: 检查当前是否在执行任务的游戏阶段等...
 
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL))
             __leave;
@@ -590,18 +598,17 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
             __leave;
         }
 
+        // TODO: 记得游戏里有不能选已经当过仙女的人来验的规则
+
         if (!ReplyPlayerFairyInspect(pConnInfo, TRUE, NULL))
             __leave;
-        if (pRoom->RoleList[CheckIndex] == HINT_GOOD )
-        {
 
-        }
-        else
-        {
-
-        }
         if(!BroadcastFairyInspect(pRoom,ID))
             __leave;
+
+        // TODO: 根据身份（pRoom->RoleList[CheckIndex]）好坏
+        // 通过 SendRoleHint 发送 HINT_GOOD 或者 HINT_BAD
+
         bSuccess = TRUE;
     }
     __finally
@@ -680,7 +687,7 @@ BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Mes
         }
         if (!ReplyPlayerTextMessage(pConnInfo, TRUE, NULL))
             __leave;
-        if (!BroadcastTextMessage(pRoom, pConnInfo->PlayingIndex , Message))
+        if (!BroadcastTextMessage(pRoom, pRoom->PlayingList[pConnInfo->PlayingIndex].GameID, Message))
             __leave;
         bSuccess = TRUE;
     }
