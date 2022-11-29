@@ -75,6 +75,9 @@ typedef struct _GAME_ROOM
     UINT TeamMemberCnt;
     UINT TeamMemberList[ROOM_PLAYER_MAX];
 
+    UINT DecidedCnt;
+    UINT32 DecidedIDList[ROOM_PLAYER_MAX];
+
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);

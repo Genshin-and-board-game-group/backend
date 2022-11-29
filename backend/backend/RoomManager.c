@@ -557,6 +557,25 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
 
         // TODO: 检查当前是否在执行任务的游戏阶段等...
 
+        pRoom->DecidedIDList[pRoom->DecidedCnt++] = bPerform;
+
+        if (!BroadcastMissionResultProgress(pRoom, pRoom->DecidedCnt, pRoom->DecidedIDList))
+            __leave;
+
+        // TODO: fix wrong count
+        if (pRoom->DecidedCnt == pRoom->PlayingCount) {
+            UINT Perform = 0, Screw = 0;
+            for (int i = 0; i < pRoom->DecidedCnt; i++) {
+                if (pRoom->DecidedIDList[i])Perform++;
+                else Screw++;
+
+            }
+            // TODO: fix wrong count
+            UINT lim = 1;
+            if (!BroadcastMissionResult(pRoom, Screw < lim, Perform, Screw))
+                __leave;
+        }
+
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL))
             __leave;
         
@@ -600,6 +619,13 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
         // TODO: 记得游戏里有不能选已经当过仙女的人来验的规则
 
+        if (pConnInfo->bBecomeFairy) {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You had become fairy.");
+            __leave;
+        }
+
+        pConnInfo->bBecomeFairy = 1;
+
         if (!ReplyPlayerFairyInspect(pConnInfo, TRUE, NULL))
             __leave;
 
@@ -608,6 +634,22 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
         // TODO: 根据身份（pRoom->RoleList[CheckIndex]）好坏
         // 通过 SendRoleHint 发送 HINT_GOOD 或者 HINT_BAD
+
+        HINTLIST HintList[1];
+        HintList[0].ID = CheckIndex;
+        if (pRoom->RoleList[CheckIndex] == ROLE_MERLIN || pRoom->RoleList[CheckIndex] == ROLE_PERCIVAL || pRoom->RoleList[CheckIndex] == ROLE_LOYALIST) {
+            
+            HintList[0].HintType = HINT_GOOD;
+
+            if (!SendRoleHint(pConnInfo, 1, HintList))
+                __leave;
+        }
+        else {
+            HintList[0].HintType = HINT_BAD;
+
+            if (!SendRoleHint(pConnInfo, 1, HintList))
+                __leave;
+        }
 
         bSuccess = TRUE;
     }

@@ -17,6 +17,7 @@ typedef struct _CONNECTION_INFO
     PGAME_ROOM pRoom;
     UINT WaitingIndex; // the index of pRoom->WaitingList field
     UINT PlayingIndex; // the index of pRoom->PlayingList field
+    BOOL bBecomeFairy; // become Fairy
 } CONNECTION_INFO, * PCONNECTION_INFO;
 
 typedef struct _WEBSOCK_SENDBUF WEBSOCK_SEND_BUF, * PWEBSOCK_SEND_BUF;
