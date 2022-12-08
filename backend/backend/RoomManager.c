@@ -442,6 +442,7 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
 
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
+
         if (!pRoom->bGaming)
         {
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Game hasn't started yet.");
@@ -458,9 +459,9 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
         }
         // check the number of people
         // TODO: fix wrong count
-        if ( TeamMemberCnt > Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
+        if ( TeamMemberCnt != Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
         {
-            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected is wrong.");
             __leave;
         }
         // TODO: 检查 TeamMemberList 中的 ID 是否都有效
@@ -474,7 +475,7 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
                 bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Invalid ID.");
                 __leave;
             }
-            pRoom->TeamMemberid[i] = Index;
+            pRoom->TeamMemberid[i] = TeamMemberList[i];
         }
 
         if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL))
@@ -516,9 +517,9 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
         }
 
         // TODO: fix wrong count
-        if (pRoom->TeamMemberCnt > Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
+        if (pRoom->TeamMemberCnt != Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
         {
-            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "The number of people selected is wrong.");
             __leave;
         }
 
