@@ -7,6 +7,38 @@
 #include "HttpSendRecv.h"
 #include "MessageSender.h"
 // This lock must be acquired when creating / deleting / entering / leaving a room
+
+
+
+// 游戏每个任务的人数
+UINT  Team_Member_Cnt[11][6] = {
+            {0},//0
+            {0},//1
+            {0},//2
+            {0},//3
+            {0},//4
+            {2,3,2,3,3},//5
+            {2,3,4,3,4},//6
+            {2,3,4,4,4},//7
+            {3,4,4,5,5},//8
+            {3,4,4,5,5},//9
+            {3,4,4,5,5} };//10
+
+//多少个坏票导致游戏失败
+UINT  Task_Fail[11][6] = {
+            {0},//0
+            {0},//1
+            {0},//2
+            {0},//3
+            {0},//4
+            {1,1,1,1,1},//5
+            {1,1,1,1,1},//6
+            {1,1,1,2,1},//7
+            {1,1,1,2,1},//8
+            {1,1,1,2,1},//9
+            {1,1,1,2,1} };//10
+
+
 SRWLOCK RoomPoolLock = SRWLOCK_INIT;
 
 #define TOT_ROOM_CNT (ROOM_NUMBER_MAX - ROOM_NUMBER_MIN)
@@ -426,20 +458,30 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
         }
         // check the number of people
         // TODO: fix wrong count
-        if ( TeamMemberCnt > pRoom->PlayingCount )
+        if ( TeamMemberCnt > Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
         {
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
             __leave;
         }
         // TODO: 检查 TeamMemberList 中的 ID 是否都有效
+        
+        pRoom->TeamMemberCnt = TeamMemberCnt;
+        for (int i = 0; i < TeamMemberCnt; i++)
+        {
+            UINT Index;
+            if (!GetGamingIndexByID(pRoom, TeamMemberList[i], &Index))
+            {
+                bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Invalid ID.");
+                __leave;
+            }
+            pRoom->TeamMemberid[i] = Index;
+        }
 
         if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL))
             __leave;
         if (!BroadcastSelectTeam(pRoom, TeamMemberCnt, TeamMemberList ))
             __leave;
-        pConnInfo->pRoom->TeamMemberCnt = TeamMemberCnt;
-        for (int i = 0; i < TeamMemberCnt; i++)
-            pConnInfo->pRoom->TeamMemberList[i] = TeamMemberList[i];
+
         bSuccess = TRUE;
     }
     __finally{
@@ -474,7 +516,7 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
         }
 
         // TODO: fix wrong count
-        if (pRoom->TeamMemberCnt == pRoom->PlayingCount)
+        if (pRoom->TeamMemberCnt > Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
         {
             bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "The number of people selected exceeded the limit.");
             __leave;
@@ -557,23 +599,30 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
 
         // TODO: 检查当前是否在执行任务的游戏阶段等...
 
-        pRoom->DecidedIDList[pRoom->DecidedCnt++] = bPerform;
-
+        for (int i = 0; i < pRoom->DecidedCnt; i++) 
+        {
+            if (pRoom->DecidedIDList[i] == pConnInfo->PlayingIndex) {
+                bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "You've already voted.");
+                __leave;
+            }
+        }
+        pRoom->DecidedIDList[pRoom->DecidedCnt++] = pConnInfo->PlayingIndex;
         if (!BroadcastMissionResultProgress(pRoom, pRoom->DecidedCnt, pRoom->DecidedIDList))
             __leave;
-
+        // TODO :good or bad
+        if (bPerform)++pRoom->Screw;
+        else ++pRoom->Perform;
         // TODO: fix wrong count
-        if (pRoom->DecidedCnt == pRoom->PlayingCount) {
-            UINT Perform = 0, Screw = 0;
-            for (int i = 0; i < pRoom->DecidedCnt; i++) {
-                if (pRoom->DecidedIDList[i])Perform++;
-                else Screw++;
+        if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) {
+            
 
-            }
+            
             // TODO: fix wrong count
-            UINT lim = 1;
-            if (!BroadcastMissionResult(pRoom, Screw < lim, Perform, Screw))
+
+            if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw))
                 __leave;
+            pRoom->Rounds++;
+            pRoom->Screw = pRoom->Perform = 0;
         }
 
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL))

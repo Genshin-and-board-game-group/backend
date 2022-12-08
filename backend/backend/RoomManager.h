@@ -73,10 +73,15 @@ typedef struct _GAME_ROOM
     UINT FairyIndex;
 
     UINT TeamMemberCnt;
-    UINT TeamMemberList[ROOM_PLAYER_MAX];
+    UINT TeamMemberid[ROOM_PLAYER_MAX];
 
     UINT DecidedCnt;
     UINT32 DecidedIDList[ROOM_PLAYER_MAX];
+    
+    UINT Perform;
+    UINT Screw;
+
+    UINT Rounds;//ÓÎÏ·ÂÖÊý
 
 }GAME_ROOM, * PGAME_ROOM;
 
