@@ -65,6 +65,7 @@ typedef struct _GAME_ROOM
     UINT RoleList[ROOM_PLAYER_MAX];
 
     UINT VotedCount;
+    UINT VotedList[ROOM_PLAYER_MAX];
     VOTELIST VotedIDList[ROOM_PLAYER_MAX];
 
     UINT Vote[ROOM_PLAYER_MAX];

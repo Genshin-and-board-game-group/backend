@@ -556,7 +556,6 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
         }
         
         // TODO: 检查当前是否是玩家投票阶段
-
         for (int i = 0; i < pRoom->VotedCount; i++) {
             if (pRoom->VotedIDList[i].ID == pConnInfo->PlayingIndex) {
                 bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You've already voted.");
@@ -565,6 +564,9 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
         }
         if (!ReplyPlayerVoteTeam(pConnInfo, TRUE, NULL))
             __leave;
+
+
+        pRoom->VotedList[pRoom->VotedCount] = pRoom->VotedCount;
         pRoom->VotedIDList[pRoom->VotedCount++] = (VOTELIST){ pConnInfo->PlayingIndex ,bVote };
         
         if (!BroadcastVoteTeamProgress(pRoom, pRoom->VotedCount, pRoom->VotedIDList))
@@ -603,6 +605,18 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         }
 
         // TODO: 检查当前是否在执行任务的游戏阶段等...
+
+        BOOL FLAG = 0;
+        for (int i = 0; i < pRoom->TeamMemberCnt; i++)
+        {
+            UINT Index;
+            FLAG |= pRoom->TeamMemberid[i] == pConnInfo->PlayingIndex;
+        }
+
+        if (!FLAG) {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in team.");
+            __leave;
+        }
 
         for (int i = 0; i < pRoom->DecidedCnt; i++) 
         {
