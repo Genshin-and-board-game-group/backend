@@ -629,9 +629,11 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             for (int i = 0; i < pRoom->VotedCount; i++) {
                 cnt += pRoom->VotedIDList[i].VoteResult;
             }
-            if (!BroadcastVoteTeam(pRoom, cnt+cnt > pRoom->PlayingCount,pRoom->VotedCount, pRoom->VotedIDList));
+            if (!BroadcastVoteTeam(pRoom, cnt+cnt > pRoom->PlayingCount,pRoom->VotedCount, pRoom->VotedIDList))
                 __leave;
             pRoom->VotedCount = 0;
+            if(cnt + cnt <= pRoom->PlayingCount)
+                pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
         }
         bSuccess = TRUE;
     }
@@ -662,7 +664,6 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         BOOL FLAG = 0;
         for (int i = 0; i < pRoom->TeamMemberCnt; i++)
         {
-            UINT Index;
             FLAG |= pRoom->TeamMemberid[i] == pConnInfo->PlayingIndex;
         }
 
@@ -670,7 +671,6 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in team.");
             __leave;
         }
-
         for (int i = 0; i < pRoom->DecidedCnt; i++) 
         {
             if (pRoom->DecidedIDList[i] == pConnInfo->PlayingIndex) {
@@ -678,12 +678,12 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
                 __leave;
             }
         }
-        pRoom->DecidedIDList[pRoom->DecidedCnt++] = pConnInfo->PlayingIndex;
+        pRoom->DecidedIDList[pRoom->DecidedCnt++] = pRoom->PlayingList[pConnInfo->PlayingIndex].GameID;
         if (!BroadcastMissionResultProgress(pRoom, pRoom->DecidedCnt, pRoom->DecidedIDList))
             __leave;
         // TODO :good or bad
-        if (bPerform)++pRoom->Screw;
-        else ++pRoom->Perform;
+        if (bPerform)++pRoom->Perform;
+        else ++pRoom->Screw;
         // TODO: fix wrong count
         if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) {
             
@@ -693,8 +693,10 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
 
             if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw))
                 __leave;
+            pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
             pRoom->Rounds++;
             pRoom->Screw = pRoom->Perform = 0;
+
         }
 
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL))
