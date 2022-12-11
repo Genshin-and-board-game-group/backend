@@ -424,6 +424,11 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
             UINT FairyID = pRoom->bFairyEnabled ? pRoom->PlayingList[pRoom->FairyIndex].GameID : 0;
             SendBeginGame(pRoom->PlayingList[i].pConnInfo, pRoom->RoleList[i], pRoom->bFairyEnabled, FairyID);
         }
+
+        if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex))
+        {
+            __leave;
+        }
     }
     __finally
     {
@@ -439,7 +444,6 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not in a room.");
-
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
 
@@ -448,8 +452,8 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
-
         // TODO: 检查当前是否是队长选择队员的游戏阶段
+
 
         // check the leader
         if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
@@ -457,13 +461,9 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not the leader.");
             __leave;
         }
-        if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex)) 
-        {
-            __leave;
-        }
         // check the number of people
         // TODO: fix wrong count
-        if ( TeamMemberCnt != Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
+        if ( TeamMemberCnt > Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
         {
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected is wrong.");
             __leave;
@@ -484,6 +484,7 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
 
         if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL))
             __leave;
+
         if (!BroadcastSelectTeam(pRoom, TeamMemberCnt, TeamMemberList ))
             __leave;
 
