@@ -429,6 +429,58 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         {
             __leave;
         }
+        for (int i = 0; i < pRoom->PlayingCount; i++) {
+            if (pRoom->RoleList[i]==ROLE_MERLIN) {
+                HINTLIST HINT[4];
+                UINT HINT_CNT = 0;
+                for (int j = 0; j < pRoom->PlayingCount; j++) {
+                    if (pRoom->RoleList[j]==ROLE_ASSASSIN || pRoom->RoleList[j]==ROLE_MORGANA || pRoom->RoleList[j]==ROLE_OBERON || pRoom->RoleList[j] == ROLE_MINIONS)
+                    {
+                        HINT[HINT_CNT++] = (HINTLIST){  pRoom -> PlayingList[j]. GameID, HINT_BAD};
+                    } 
+                }
+                SendRoleHint( pRoom -> PlayingList[i].pConnInfo, HINT_CNT, HINT);
+            }
+        }
+        for (int i = 0; i < pRoom->PlayingCount; i++) {
+            if (pRoom->RoleList[i] == ROLE_PERCIVAL) {
+                HINTLIST HINT[4];
+                UINT HINT_CNT = 0;
+                for (int j = 0; j < pRoom->PlayingCount; j++) {
+                    if ( pRoom->RoleList[j] == ROLE_MORGANA || pRoom->RoleList[j] == ROLE_MERLIN)
+                    {
+                        HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MERLIN_OR_MORGANA };
+                    }
+                }
+                SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT);
+            }
+        }
+        for (int i = 0; i < pRoom->PlayingCount; i++) {
+            if (pRoom->RoleList[i] == ROLE_ASSASSIN || pRoom->RoleList[i] == ROLE_MORGANA || pRoom->RoleList[i] == ROLE_MORDRED || pRoom->RoleList[i] == ROLE_MINIONS) {
+                HINTLIST HINT[10];
+                UINT HINT_CNT = 0;
+                for (int j = 0; j < pRoom->PlayingCount; j++) 
+                    if(i!=j){
+                        if (pRoom->RoleList[j] == ROLE_MORGANA )
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MORGANA };
+                        }
+                        if (pRoom->RoleList[j] == ROLE_MINIONS)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MINIONS };
+                        }
+                        if (pRoom->RoleList[j] == ROLE_MORDRED)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MORDRED };
+                        }
+                        if (pRoom->RoleList[j] == ROLE_ASSASSIN)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_ASSASSIN };
+                        }
+                    }
+                SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT);
+            }
+        }
     }
     __finally
     {
@@ -485,7 +537,7 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
         if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL))
             __leave;
 
-        if (!BroadcastSelectTeam(pRoom, TeamMemberCnt, TeamMemberList ))
+        if (!BroadcastSelectTeam(pRoom, pRoom->TeamMemberCnt, pRoom->TeamMemberid))
             __leave;
 
         bSuccess = TRUE;

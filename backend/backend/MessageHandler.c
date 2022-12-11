@@ -113,7 +113,7 @@ BOOL HandlePlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ yyjson_val*
     while ((val = yyjson_arr_iter_next(&iter))) {
         if (!yyjson_is_uint(val))
             return FALSE;
-        TeamArr[iter.idx] = (UINT)yyjson_get_uint(val);
+        TeamArr[iter.idx-1] = (UINT)yyjson_get_uint(val);
     }
 
     return PlayerSelectTeam(pConnInfo, (UINT)Size, TeamArr);
