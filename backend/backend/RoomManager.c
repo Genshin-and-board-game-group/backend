@@ -569,7 +569,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
         pRoom->VotedList[pRoom->VotedCount] = pConnInfo->PlayingIndex;
         pRoom->VotedIDList[pRoom->VotedCount++] = (VOTELIST){ pConnInfo->PlayingIndex ,bVote };
         
-        if (!BroadcastVoteTeamProgress(pRoom, pRoom->VotedCount, pRoom->VotedIDList))
+        if (!BroadcastVoteTeamProgress(pRoom, pRoom->VotedCount, pRoom->VotedList))
             __leave;
         if (pRoom->VotedCount == pRoom->PlayingCount) {
             UINT cnt = 0;
