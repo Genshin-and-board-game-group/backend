@@ -457,6 +457,10 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
             bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not the leader.");
             __leave;
         }
+        if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex)) 
+        {
+            __leave;
+        }
         // check the number of people
         // TODO: fix wrong count
         if ( TeamMemberCnt != Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
