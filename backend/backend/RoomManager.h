@@ -84,6 +84,10 @@ typedef struct _GAME_ROOM
 
     UINT Rounds;//сно╥бжйЩ
 
+    UINT Vote_Fail;
+
+    UINT Game_Win;
+
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);

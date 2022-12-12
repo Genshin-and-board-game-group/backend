@@ -496,6 +496,8 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not in a room.");
+    if (pRoom->Game_Win>=3)
+        return ReplyPlayerSelectTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
 
@@ -555,6 +557,8 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
     if (!pRoom)
         return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "You are not in a room.");
 
+    if (pRoom->Game_Win >= 3)
+        return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
         // check bGaming
@@ -598,8 +602,8 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in a room.");
-
-
+    if (pRoom->Game_Win >= 3)
+        return ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
         if (!pRoom->bGaming)
@@ -632,8 +636,25 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             if (!BroadcastVoteTeam(pRoom, cnt+cnt > pRoom->PlayingCount,pRoom->VotedCount, pRoom->VotedIDList))
                 __leave;
             pRoom->VotedCount = 0;
-            if(cnt + cnt <= pRoom->PlayingCount)
+            if (cnt + cnt <= pRoom->PlayingCount) 
+            {
                 pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
+                if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex))
+                {
+                    __leave;
+                }
+                ++pRoom->Vote_Fail;
+                if (pRoom->Vote_Fail == 5) {
+                    if (!BroadcastEndGame(pRoom, FALSE, "VoteTeam Fail."))
+                        __leave;
+                    pRoom->bGaming = FALSE;
+                    if (!BroadcastRoomStatus(pRoom))
+                        __leave;
+                }
+            }
+            else {
+                pRoom->Vote_Fail=0;
+            }
         }
         bSuccess = TRUE;
     }
@@ -649,7 +670,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerConductMission(pConnInfo, FALSE, "You are not in a room.");
-
+    if (pRoom->Game_Win >= 3)
+        return ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try
     {
@@ -694,9 +716,23 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw))
                 __leave;
             pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
+            if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex))
+            {
+                __leave;
+            }
+            if (pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds])
+                ++pRoom->Game_Win;
             pRoom->Rounds++;
-            pRoom->Screw = pRoom->Perform = 0;
-
+            pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
+            if (pRoom->Rounds - pRoom->Game_Win == 3) 
+            {
+                if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 Rounds."))
+                    __leave;
+            
+                pRoom->bGaming = FALSE;
+                if (!BroadcastRoomStatus(pRoom))
+                    __leave;
+            }
         }
 
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL))
