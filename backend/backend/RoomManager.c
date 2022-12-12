@@ -795,7 +795,7 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
         // 通过 SendRoleHint 发送 HINT_GOOD 或者 HINT_BAD
 
         HINTLIST HintList[1];
-        HintList[0].ID = CheckIndex;
+        HintList[0].ID = ID;
         if (pRoom->RoleList[CheckIndex] == ROLE_MERLIN || pRoom->RoleList[CheckIndex] == ROLE_PERCIVAL || pRoom->RoleList[CheckIndex] == ROLE_LOYALIST) {
             
             HintList[0].HintType = HINT_GOOD;
