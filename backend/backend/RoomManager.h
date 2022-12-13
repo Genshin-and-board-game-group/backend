@@ -79,6 +79,8 @@ typedef struct _GAME_ROOM
     UINT DecidedCnt;
     UINT32 DecidedIDList[ROOM_PLAYER_MAX];
     
+    UINT bBecomeFairy[ROOM_PLAYER_MAX];
+
     UINT Perform;
     UINT Screw;
 

@@ -778,12 +778,12 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
         // TODO: 记得游戏里有不能选已经当过仙女的人来验的规则
 
-        if (pConnInfo->bBecomeFairy) {
+        if (pRoom->bBecomeFairy[pConnInfo->PlayingIndex]) {
             bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You had become fairy.");
             __leave;
         }
 
-        pConnInfo->bBecomeFairy = 1;
+        pRoom->bBecomeFairy[pConnInfo->PlayingIndex] = 1;
 
         if (!ReplyPlayerFairyInspect(pConnInfo, TRUE, NULL))
             __leave;
