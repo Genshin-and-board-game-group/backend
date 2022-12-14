@@ -425,43 +425,39 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
             SendBeginGame(pRoom->PlayingList[i].pConnInfo, pRoom->RoleList[i], pRoom->bFairyEnabled, FairyID);
         }
 
-        if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex))
+        if (!BroadcastSetLeader(pRoom, pRoom->PlayingList[pRoom->LeaderIndex].GameID))
         {
             __leave;
         }
         for (int i = 0; i < pRoom->PlayingCount; i++) {
-            if (pRoom->RoleList[i]==ROLE_MERLIN) {
+            if (pRoom->RoleList[i] == ROLE_MERLIN) {
                 HINTLIST HINT[4];
                 UINT HINT_CNT = 0;
                 for (int j = 0; j < pRoom->PlayingCount; j++) {
-                    if (pRoom->RoleList[j]==ROLE_ASSASSIN || pRoom->RoleList[j]==ROLE_MORGANA || pRoom->RoleList[j]==ROLE_OBERON || pRoom->RoleList[j] == ROLE_MINIONS)
+                    if (pRoom->RoleList[j] == ROLE_ASSASSIN || pRoom->RoleList[j] == ROLE_MORGANA || pRoom->RoleList[j] == ROLE_OBERON || pRoom->RoleList[j] == ROLE_MINIONS)
                     {
-                        HINT[HINT_CNT++] = (HINTLIST){  pRoom -> PlayingList[j]. GameID, HINT_BAD};
-                    } 
+                        HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_BAD };
+                    }
                 }
-                SendRoleHint( pRoom -> PlayingList[i].pConnInfo, HINT_CNT, HINT);
+                SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT);
             }
-        }
-        for (int i = 0; i < pRoom->PlayingCount; i++) {
             if (pRoom->RoleList[i] == ROLE_PERCIVAL) {
                 HINTLIST HINT[4];
                 UINT HINT_CNT = 0;
                 for (int j = 0; j < pRoom->PlayingCount; j++) {
-                    if ( pRoom->RoleList[j] == ROLE_MORGANA || pRoom->RoleList[j] == ROLE_MERLIN)
+                    if (pRoom->RoleList[j] == ROLE_MORGANA || pRoom->RoleList[j] == ROLE_MERLIN)
                     {
                         HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MERLIN_OR_MORGANA };
                     }
                 }
                 SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT);
             }
-        }
-        for (int i = 0; i < pRoom->PlayingCount; i++) {
             if (pRoom->RoleList[i] == ROLE_ASSASSIN || pRoom->RoleList[i] == ROLE_MORGANA || pRoom->RoleList[i] == ROLE_MORDRED || pRoom->RoleList[i] == ROLE_MINIONS) {
                 HINTLIST HINT[10];
                 UINT HINT_CNT = 0;
-                for (int j = 0; j < pRoom->PlayingCount; j++) 
-                    if(i!=j){
-                        if (pRoom->RoleList[j] == ROLE_MORGANA )
+                for (int j = 0; j < pRoom->PlayingCount; j++)
+                    if (i != j) {
+                        if (pRoom->RoleList[j] == ROLE_MORGANA)
                         {
                             HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MORGANA };
                         }
@@ -577,7 +573,6 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             __leave;
         }
 
-        // TODO: fix wrong count
         if (pRoom->TeamMemberCnt != Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
         {
             bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "The number of people selected is wrong.");
@@ -604,6 +599,15 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
         return ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in a room.");
     if (pRoom->Game_Win >= 3)
         return ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+    /*
+    if (pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_MERLIN || pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_PERCIVAL || pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_LOYALIST)
+    {
+        if (bVote == FALSE) 
+        {
+            return ReplyPlayerVoteTeam(pConnInfo, FALSE, "Wrong vote.");
+        }
+    }
+    */
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
         if (!pRoom->bGaming)
@@ -639,7 +643,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             if (cnt + cnt <= pRoom->PlayingCount) 
             {
                 pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
-                if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex))
+                if (!BroadcastSetLeader(pRoom, pRoom->PlayingList[pRoom->LeaderIndex].GameID))
                 {
                     __leave;
                 }
@@ -706,17 +710,12 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         // TODO :good or bad
         if (bPerform)++pRoom->Perform;
         else ++pRoom->Screw;
-        // TODO: fix wrong count
         if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) {
             
-
-            
-            // TODO: fix wrong count
-
             if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw))
                 __leave;
             pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
-            if (!BroadcastSetLeader(pRoom, pRoom->LeaderIndex))
+            if (!BroadcastSetLeader(pRoom, pRoom->PlayingList[pRoom->LeaderIndex].GameID))
             {
                 __leave;
             }
