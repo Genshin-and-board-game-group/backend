@@ -492,8 +492,6 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not in a room.");
-    if (pRoom->Game_Win>=3)
-        return ReplyPlayerSelectTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
 
@@ -504,6 +502,8 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
         }
         // TODO: 检查当前是否是队长选择队员的游戏阶段
 
+        if (pRoom->Game_Win>=3)
+            return ReplyPlayerSelectTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
 
         // check the leader
         if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
@@ -553,8 +553,6 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
     if (!pRoom)
         return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "You are not in a room.");
 
-    if (pRoom->Game_Win >= 3)
-        return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try {
         // check bGaming
@@ -564,6 +562,8 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             __leave;
         }
 
+        if (pRoom->Game_Win >= 3)
+            return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
         // TODO: 检查当前是否是队长选择队员的游戏阶段
 
         // check the leader
@@ -597,8 +597,6 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in a room.");
-    if (pRoom->Game_Win >= 3)
-        return ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
     /*
     if (pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_MERLIN || pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_PERCIVAL || pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_LOYALIST)
     {
@@ -616,6 +614,8 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             __leave;
         }
         
+        if (pRoom->Game_Win >= 3)
+            return ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
         // TODO: 检查当前是否是玩家投票阶段
         for (int i = 0; i < pRoom->VotedCount; i++) {
             if (pRoom->VotedIDList[i].ID == pConnInfo->PlayingIndex) {
@@ -674,8 +674,6 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
     BOOL bSuccess = FALSE;
     if (!pRoom)
         return ReplyPlayerConductMission(pConnInfo, FALSE, "You are not in a room.");
-    if (pRoom->Game_Win >= 3)
-        return ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
     AcquireSRWLockExclusive(&pRoom->PlayerListLock);
     __try
     {
@@ -685,6 +683,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             __leave;
         }
 
+        if (pRoom->Game_Win >= 3)
+            return ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
         // TODO: 检查当前是否在执行任务的游戏阶段等...
 
         BOOL FLAG = 0;
