@@ -765,7 +765,7 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         }
         for (int i = 0; i < pRoom->DecidedCnt; i++)
         {
-            if (pRoom->DecidedIDList[i] == pConnInfo->PlayingIndex) {
+            if (pRoom->DecidedIDList[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) {
                 bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "You've already voted.");
                 __leave;
             }
