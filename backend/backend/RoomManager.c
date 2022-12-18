@@ -705,6 +705,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
                     __leave;
                 }
                 ++pRoom->Vote_Fail;
+                pRoom->TeamMemberCnt = 0;
                 if (pRoom->Vote_Fail == 5) {
                     if (!BroadcastEndGame(pRoom, FALSE, "VoteTeam Fail.")) 
                     {
