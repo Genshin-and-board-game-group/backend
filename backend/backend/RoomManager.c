@@ -7,6 +7,38 @@
 #include "HttpSendRecv.h"
 #include "MessageSender.h"
 // This lock must be acquired when creating / deleting / entering / leaving a room
+
+
+
+// 游戏每个任务的人数
+UINT  Team_Member_Cnt[11][6] = {
+            {0},//0
+            {0},//1
+            {0},//2
+            {0},//3
+            {0},//4
+            {2,3,2,3,3},//5
+            {2,3,4,3,4},//6
+            {2,3,4,4,4},//7
+            {3,4,4,5,5},//8
+            {3,4,4,5,5},//9
+            {3,4,4,5,5} };//10
+
+//多少个坏票导致游戏失败
+UINT  Task_Fail[11][6] = {
+            {0},//0
+            {0},//1
+            {0},//2
+            {0},//3
+            {0},//4
+            {1,1,1,1,1},//5
+            {1,1,1,1,1},//6
+            {1,1,1,2,1},//7
+            {1,1,1,2,1},//8
+            {1,1,1,2,1},//9
+            {1,1,1,2,1} };//10
+
+
 SRWLOCK RoomPoolLock = SRWLOCK_INIT;
 
 #define TOT_ROOM_CNT (ROOM_NUMBER_MAX - ROOM_NUMBER_MIN)
@@ -385,12 +417,92 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         }
         pRoom->bGaming = TRUE;
 
+        pRoom->Screw = 0;
+        pRoom->Perform = 0;
+        pRoom->Game_Win = 0;
+        pRoom->Rounds = 0;
+       
         bSuccess = ReplyStartGame(pConnInfo, TRUE, NULL);
-
+                
         for (UINT i = 0; i < pRoom->PlayingCount; i++)
         {
             UINT FairyID = pRoom->bFairyEnabled ? pRoom->PlayingList[pRoom->FairyIndex].GameID : 0;
-            SendBeginGame(pRoom->PlayingList[i].pConnInfo, pRoom->RoleList[i], pRoom->bFairyEnabled, FairyID);
+            if (!SendBeginGame(pRoom->PlayingList[i].pConnInfo, pRoom->RoleList[i], pRoom->bFairyEnabled, FairyID)) 
+            {
+                bSuccess = FALSE;
+                __leave;
+            }
+        }
+
+        if (!BroadcastSetLeader(pRoom, pRoom->PlayingList[pRoom->LeaderIndex].GameID))
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        for (int i = 0; i < pRoom->PlayingCount; i++) 
+        {
+            if (pRoom->RoleList[i] == ROLE_MERLIN) 
+            {
+                HINTLIST HINT[4];
+                UINT HINT_CNT = 0;
+                for (int j = 0; j < pRoom->PlayingCount; j++) 
+                {
+                    if (pRoom->RoleList[j] == ROLE_ASSASSIN || pRoom->RoleList[j] == ROLE_MORGANA || pRoom->RoleList[j] == ROLE_OBERON || pRoom->RoleList[j] == ROLE_MINIONS)
+                    {
+                        HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_BAD };
+                    }
+                }
+                if (!SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT)) 
+                {
+                    bSuccess = FALSE;
+                    __leave;
+                }
+            }
+            if (pRoom->RoleList[i] == ROLE_PERCIVAL) 
+            {
+                HINTLIST HINT[4];
+                UINT HINT_CNT = 0;
+                for (int j = 0; j < pRoom->PlayingCount; j++) 
+                {
+                    if (pRoom->RoleList[j] == ROLE_MORGANA || pRoom->RoleList[j] == ROLE_MERLIN)
+                    {
+                        HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MERLIN_OR_MORGANA };
+                    }
+                }
+                if (!SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT)) 
+                {
+                    bSuccess = FALSE;
+                    __leave;
+                }
+            }
+            if (pRoom->RoleList[i] == ROLE_ASSASSIN || pRoom->RoleList[i] == ROLE_MORGANA || pRoom->RoleList[i] == ROLE_MORDRED || pRoom->RoleList[i] == ROLE_MINIONS) {
+                HINTLIST HINT[10];
+                UINT HINT_CNT = 0;
+                for (int j = 0; j < pRoom->PlayingCount; j++)
+                    if (i != j) {
+                        if (pRoom->RoleList[j] == ROLE_MORGANA)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MORGANA };
+                        }
+                        if (pRoom->RoleList[j] == ROLE_MINIONS)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MINIONS };
+                        }
+                        if (pRoom->RoleList[j] == ROLE_MORDRED)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_MORDRED };
+                        }
+                        if (pRoom->RoleList[j] == ROLE_ASSASSIN)
+                        {
+                            HINT[HINT_CNT++] = (HINTLIST){ pRoom->PlayingList[j].GameID, HINT_ASSASSIN };
+                        }
+                    }
+                if (!SendRoleHint(pRoom->PlayingList[i].pConnInfo, HINT_CNT, HINT)) 
+                {
+                    bSuccess = FALSE;
+                    __leave;
+                }
+            }
         }
     }
     __finally
@@ -403,27 +515,403 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
 
 BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[])
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not in a room.");
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try {
+
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        // TODO: 检查当前是否是队长选择队员的游戏阶段
+
+        if (pRoom->Game_Win >= 3) 
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+            __leave;
+        }
+        // check the leader
+        if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "You are not the leader.");
+            __leave;
+        }
+        // check the number of people
+        // TODO: fix wrong count
+        if ( TeamMemberCnt > Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
+        {
+            bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "The number of people selected is wrong.");
+            __leave;
+        }
+        // TODO: 检查 TeamMemberList 中的 ID 是否都有效
+        
+        pRoom->TeamMemberCnt = TeamMemberCnt;
+        for (int i = 0; i < TeamMemberCnt; i++)
+        {
+            UINT Index;
+            if (!GetGamingIndexByID(pRoom, TeamMemberList[i], &Index))
+            {
+                bSuccess = ReplyPlayerSelectTeam(pConnInfo, FALSE, "Invalid ID.");
+                __leave;
+            }
+            pRoom->TeamMemberid[i] = TeamMemberList[i];
+        }
+
+        if (!ReplyPlayerSelectTeam(pConnInfo, TRUE, NULL)) 
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        if (!BroadcastSelectTeam(pRoom, pRoom->TeamMemberCnt, pRoom->TeamMemberid))
+        {
+
+            bSuccess = FALSE;
+            __leave;
+        }
+        bSuccess = TRUE;
+    }
+    __finally{
+        ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerConfirmTeam(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try {
+        // check bGaming
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+
+        if (pRoom->Game_Win >= 3) {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+            __leave;
+        }
+        // TODO: 检查当前是否是队长选择队员的游戏阶段
+
+        // check the leader
+        if (pRoom->LeaderIndex != pConnInfo->PlayingIndex)
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "You are not the leader.");
+            __leave;
+        }
+
+        if (pRoom->TeamMemberCnt != Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds])
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "The number of people selected is wrong.");
+            __leave;
+        }
+
+        if (!ReplyPlayerConfirmTeam(pConnInfo, TRUE, NULL))
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        if (!BroadcastConfirmTeam(pRoom))
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        bSuccess = TRUE;
+    }
+    __finally {
+        ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in a room.");
+    /*
+    if (pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_MERLIN || pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_PERCIVAL || pRoom->RoleList[pConnInfo->PlayingIndex] == ROLE_LOYALIST)
+    {
+        if (bVote == FALSE) 
+        {
+            return ReplyPlayerVoteTeam(pConnInfo, FALSE, "Wrong vote.");
+        }
+    }
+    */
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+
+        if (pRoom->Game_Win >= 3) {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+            __leave;
+        }
+        // TODO: 检查当前是否是玩家投票阶段
+        for (int i = 0; i < pRoom->VotedCount; i++)
+        {
+            if (pRoom->VotedIDList[i].ID == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) {
+                bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You've already voted.");
+                __leave;
+            }
+        }
+        if (!ReplyPlayerVoteTeam(pConnInfo, TRUE, NULL))
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+
+        pRoom->VotedList[pRoom->VotedCount] = pRoom->PlayingList[pConnInfo->PlayingIndex].GameID;
+        pRoom->VotedIDList[pRoom->VotedCount++] = (VOTELIST){ pRoom->PlayingList[pConnInfo->PlayingIndex].GameID ,bVote };
+
+        if (!BroadcastVoteTeamProgress(pRoom, pRoom->VotedCount, pRoom->VotedList)) 
+        {
+
+            bSuccess = FALSE;
+            __leave;
+        }
+        if (pRoom->VotedCount == pRoom->PlayingCount) 
+        {
+            UINT cnt = 0;
+            for (int i = 0; i < pRoom->VotedCount; i++) 
+            {
+                cnt += pRoom->VotedIDList[i].VoteResult;
+            }
+            if (!BroadcastVoteTeam(pRoom, cnt + cnt > pRoom->PlayingCount, pRoom->VotedCount, pRoom->VotedIDList))
+            {
+                bSuccess = FALSE;
+                __leave;
+            }
+            pRoom->VotedCount = 0;
+            if (cnt + cnt <= pRoom->PlayingCount) 
+            {
+                pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
+                if (!BroadcastSetLeader(pRoom, pRoom->PlayingList[pRoom->LeaderIndex].GameID))
+                {
+                    bSuccess = FALSE;
+                    __leave;
+                }
+                ++pRoom->Vote_Fail;
+                if (pRoom->Vote_Fail == 5) {
+                    if (!BroadcastEndGame(pRoom, FALSE, "VoteTeam Fail.")) 
+                    {
+                        bSuccess = FALSE;
+                        __leave;
+                    }
+                    pRoom->bGaming = FALSE;
+                    if (!BroadcastRoomStatus(pRoom))
+                    {
+                        bSuccess = FALSE;
+                        __leave;
+                    }
+                }
+            }
+            else {
+                pRoom->Vote_Fail=0;
+            }
+        }
+        bSuccess = TRUE;
+    }
+    __finally {
+        ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerConductMission(pConnInfo, FALSE, "You are not in a room.");
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+
+        if (pRoom->Game_Win >= 3)
+        {
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
+            __leave;
+        }
+        // TODO: 检查当前是否在执行任务的游戏阶段等...
+
+        BOOL FLAG = 0;
+        for (int i = 0; i < pRoom->TeamMemberCnt; i++)
+        {
+            FLAG |= pRoom->TeamMemberid[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID;
+        }
+
+        if (!FLAG) {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in team.");
+            __leave;
+        }
+        for (int i = 0; i < pRoom->DecidedCnt; i++)
+        {
+            if (pRoom->DecidedIDList[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) {
+                bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "You've already voted.");
+                __leave;
+            }
+        }
+        pRoom->DecidedIDList[pRoom->DecidedCnt++] = pRoom->PlayingList[pConnInfo->PlayingIndex].GameID;
+        if (!BroadcastMissionResultProgress(pRoom, pRoom->DecidedCnt, pRoom->DecidedIDList)) 
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        // TODO :good or bad
+        if (bPerform)++pRoom->Perform;
+        else ++pRoom->Screw;
+        if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) {
+            
+            if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw)) 
+            {
+
+                bSuccess = FALSE;
+                __leave;
+            }
+            pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
+            if (!BroadcastSetLeader(pRoom, pRoom->PlayingList[pRoom->LeaderIndex].GameID))
+            {
+                __leave;
+            }
+            if (pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds])
+                ++pRoom->Game_Win;
+            pRoom->Rounds++;
+            pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
+            if (pRoom->Rounds - pRoom->Game_Win == 3) 
+            {
+                if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 Rounds.")) 
+                {
+                    bSuccess = FALSE;
+                    __leave;
+                }
+            
+                pRoom->bGaming = FALSE;
+                if (!BroadcastRoomStatus(pRoom)) 
+                {
+                    bSuccess = FALSE;
+                    __leave;
+                }
+            }
+        }
+
+        if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL)) 
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerFairyInspect(pConnInfo, FALSE, "You are not in a room.");
+    
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        if (pConnInfo->PlayingIndex != pRoom->FairyIndex)
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You are not fairy.");
+            __leave;
+        }
+        if (!pRoom->bFairyEnabled) {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The room doesn't have the fairy.");
+            __leave;
+        }
+        UINT CheckIndex;
+        if (!GetGamingIndexByID(pRoom, ID, &CheckIndex))
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "Invalid ID.");
+            __leave;
+        }
+
+        // TODO: 记得游戏里有不能选已经当过仙女的人来验的规则
+
+        if (pRoom->bBecomeFairy[pConnInfo->PlayingIndex]) 
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You had become fairy.");
+            __leave;
+        }
+
+        pRoom->bBecomeFairy[pConnInfo->PlayingIndex] = 1;
+
+        if (!ReplyPlayerFairyInspect(pConnInfo, TRUE, NULL)) 
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+
+        if (!BroadcastFairyInspect(pRoom, ID))
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        // TODO: 根据身份（pRoom->RoleList[CheckIndex]）好坏
+        // 通过 SendRoleHint 发送 HINT_GOOD 或者 HINT_BAD
+
+        HINTLIST HintList[1];
+        HintList[0].ID = ID;
+        if (pRoom->RoleList[CheckIndex] == ROLE_MERLIN || pRoom->RoleList[CheckIndex] == ROLE_PERCIVAL || pRoom->RoleList[CheckIndex] == ROLE_LOYALIST) {
+            
+            HintList[0].HintType = HINT_GOOD;
+
+            if (!SendRoleHint(pConnInfo, 1, HintList)) 
+            {
+                bSuccess = FALSE;
+                __leave;
+            }
+        }
+        else {
+            HintList[0].HintType = HINT_BAD;
+
+            if (!SendRoleHint(pConnInfo, 1, HintList)) 
+            {
+                bSuccess = FALSE;
+                __leave;
+            }
+        }
+
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }
 
 BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
@@ -454,21 +942,33 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
             __leave;
         }
 
-        if (!ReplyPlayerAssassinate(pConnInfo, TRUE, NULL))
+        if (!ReplyPlayerAssassinate(pConnInfo, TRUE, NULL)) 
+        {
+            bSuccess = FALSE;
             __leave;
+        }
         if (pRoom->RoleList[AssassinateIndex] == ROLE_MERLIN)
         {
-            if (!BroadcastEndGame(pRoom, FALSE, "merlin was assassinated."))
+            if (!BroadcastEndGame(pRoom, FALSE, "merlin was assassinated.")) 
+            {
+                bSuccess = FALSE;
                 __leave;
+            }
         }
         else
         {
-            if (!BroadcastEndGame(pRoom, TRUE, "assassin failed to kill merlin."))
+            if (!BroadcastEndGame(pRoom, TRUE, "assassin failed to kill merlin.")) 
+            {
+                bSuccess = FALSE;
                 __leave;
+            }
         }
         pRoom->bGaming = FALSE;
-        if (!BroadcastRoomStatus(pRoom))
+        if (!BroadcastRoomStatus(pRoom)) 
+        {
+            bSuccess = FALSE;
             __leave;
+        }
         bSuccess = TRUE;
     }
     __finally
@@ -480,5 +980,35 @@ BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
 BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[])
 {
-    return TRUE;
+    PGAME_ROOM pRoom = pConnInfo->pRoom;
+    BOOL bSuccess = FALSE;
+    if (!pRoom)
+        return ReplyPlayerTextMessage(pConnInfo, FALSE, "You are not in a room.");
+
+    AcquireSRWLockExclusive(&pRoom->PlayerListLock);
+    __try
+    {
+        if (!pRoom->bGaming)
+        {
+            bSuccess = ReplyPlayerTextMessage(pConnInfo, FALSE, "Game hasn't started yet.");
+            __leave;
+        }
+        if (!ReplyPlayerTextMessage(pConnInfo, TRUE, NULL)) 
+        {
+
+            bSuccess = FALSE;
+            __leave;
+        }
+        if (!BroadcastTextMessage(pRoom, pRoom->PlayingList[pConnInfo->PlayingIndex].GameID, Message))
+        {
+            bSuccess = FALSE;
+            __leave;
+        }
+        bSuccess = TRUE;
+    }
+    __finally
+    {
+        ReleaseSRWLockExclusive(&pConnInfo->pRoom->PlayerListLock);
+    }
+    return bSuccess;
 }

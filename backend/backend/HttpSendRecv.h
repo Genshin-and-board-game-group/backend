@@ -2,7 +2,8 @@
 #include "common.h"
 #include <Websocket.h>
 #include <http.h>
-#include "RoomManager.h"
+
+typedef struct _GAME_ROOM GAME_ROOM, * PGAME_ROOM;
 
 typedef struct _CONNECTION_INFO
 {

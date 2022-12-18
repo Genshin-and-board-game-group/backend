@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "MessageSender.h"
 
 #define ROOM_NUMBER_MIN 10000
 #define ROOM_NUMBER_MAX 99999
@@ -63,9 +64,32 @@ typedef struct _GAME_ROOM
 
     UINT RoleList[ROOM_PLAYER_MAX];
 
+    UINT VotedCount;
+    UINT VotedList[ROOM_PLAYER_MAX];
+    VOTELIST VotedIDList[ROOM_PLAYER_MAX];
+
+    UINT Vote[ROOM_PLAYER_MAX];
     UINT LeaderIndex; // current leader
     BOOL bFairyEnabled;
     UINT FairyIndex;
+
+    UINT TeamMemberCnt;
+    UINT TeamMemberid[ROOM_PLAYER_MAX];
+
+    UINT DecidedCnt;
+    UINT32 DecidedIDList[ROOM_PLAYER_MAX];
+    
+    UINT bBecomeFairy[ROOM_PLAYER_MAX];
+
+    UINT Perform;
+    UINT Screw;
+
+    UINT Rounds;//游戏轮数
+
+    UINT Vote_Fail;
+
+    UINT Game_Win;
+
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);
@@ -78,18 +102,65 @@ VOID LeaveRoom(_Inout_ PCONNECTION_INFO pConnInfo);
 
 BOOL ChangeAvatar(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const char* Avatar);
 
+/// <summary>
+/// 处理开始游戏
+/// </summary>
+/// <param name="pConnInfo">发起开始游戏的玩家信息</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo);
 
+/// <summary>
+/// 处理当前队长选择队伍成员
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <param name="TeamMemberCnt">队长选择的人数</param>
+/// <param name="TeamMemberList">队长选择的队员 ID</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCnt, _In_ UINT32 TeamMemberList[]);
 
+/// <summary>
+/// 处理队长确认当前队伍成员
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo);
 
+/// <summary>
+/// 处理玩家投票赞成/反对编队成员发起任务
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <param name="bVote">该玩家赞成还是反对</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote);
 
+/// <summary>
+/// 处理玩家投票选择执行还是破坏任务
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <param name="bVote">该玩家选择执行还是破坏</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform);
 
+/// <summary>
+/// 处理玩家发起仙女验人
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <param name="ID">玩家选择验的玩家的 ID</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID);
 
+/// <summary>
+/// 处理刺客发起刺杀
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <param name="ID">玩家选择刺杀的玩家的 ID</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerAssassinate(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT AssassinateID);
 
+/// <summary>
+/// 处理玩家发送消息
+/// </summary>
+/// <param name="pConnInfo">玩家信息</param>
+/// <param name="Message">玩家发送的消息，UTF8 编码</param>
+/// <returns>是否遇到致命错误，网络错误不计。</returns>
 BOOL PlayerTextMessage(_Inout_ PCONNECTION_INFO pConnInfo, _In_z_ const CHAR Message[]);
