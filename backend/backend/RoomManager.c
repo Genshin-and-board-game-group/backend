@@ -417,8 +417,13 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         }
         pRoom->bGaming = TRUE;
 
+        pRoom->Screw = 0;
+        pRoom->Perform = 0;
+        pRoom->Game_Win = 0;
+        pRoom->Rounds = 0;
+       
         bSuccess = ReplyStartGame(pConnInfo, TRUE, NULL);
-
+                
         for (UINT i = 0; i < pRoom->PlayingCount; i++)
         {
             UINT FairyID = pRoom->bFairyEnabled ? pRoom->PlayingList[pRoom->FairyIndex].GameID : 0;
