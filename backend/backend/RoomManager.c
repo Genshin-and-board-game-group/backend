@@ -626,6 +626,7 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             __leave;
         }
         bSuccess = TRUE;
+        pRoom->bvoting = TRUE;
     }
     __finally {
         ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
@@ -655,7 +656,11 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
-
+        if (!pRoom->bvoting)
+        {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Vote hasn't started yet.");
+            __leave;
+        }
         if (pRoom->Game_Win >= 3) {
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
             __leave;
@@ -696,6 +701,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
                 __leave;
             }
             pRoom->VotedCount = 0;
+            pRoom->bvoting = FALSE;
             if (cnt + cnt <= pRoom->PlayingCount) 
             {
                 pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
