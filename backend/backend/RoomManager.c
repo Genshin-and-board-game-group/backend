@@ -421,7 +421,8 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         pRoom->Perform = 0;
         pRoom->Game_Win = 0;
         pRoom->Rounds = 0;
-       
+        pRoom->bConducting = 0;
+        pRoom->bvoting = 0;
         bSuccess = ReplyStartGame(pConnInfo, TRUE, NULL);
                 
         for (UINT i = 0; i < pRoom->PlayingCount; i++)
@@ -727,7 +728,8 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
                 }
             }
             else {
-                pRoom->Vote_Fail=0;
+                pRoom->Vote_Fail = 0;
+                pRoom->bConducting = TRUE;
             }
         }
         bSuccess = TRUE;
@@ -752,7 +754,11 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
-
+        if (!pRoom->bConducting)
+        {
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Mission hasn't started yet.");
+            __leave;
+        }
         if (pRoom->Game_Win >= 3)
         {
             bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
@@ -803,6 +809,7 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
                 ++pRoom->Game_Win;
             pRoom->Rounds++;
             pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
+            pRoom->bConducting = FALSE;
             if (pRoom->Rounds - pRoom->Game_Win == 3) 
             {
                 if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 Rounds.")) 
