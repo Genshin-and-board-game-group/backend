@@ -92,6 +92,8 @@ typedef struct _GAME_ROOM
 
     BOOL bvoting;
 
+    UINT bConducting;
+
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);

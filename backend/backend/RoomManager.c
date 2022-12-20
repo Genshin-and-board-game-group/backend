@@ -417,6 +417,7 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         }
         pRoom->bGaming = TRUE;
 
+        pRoom->TeamMemberCnt = 0;
         pRoom->Screw = 0;
         pRoom->Perform = 0;
         pRoom->Game_Win = 0;
@@ -439,6 +440,10 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         {
             bSuccess = FALSE;
             __leave;
+        }
+        for (int i = 0; i < pRoom->PlayingCount; i++) 
+        {
+            pRoom->bBecomeFairy[i] = 0;
         }
         for (int i = 0; i < pRoom->PlayingCount; i++) 
         {
@@ -778,7 +783,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         }
         for (int i = 0; i < pRoom->DecidedCnt; i++)
         {
-            if (pRoom->DecidedIDList[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) {
+            if (pRoom->DecidedIDList[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) 
+            {
                 bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "You've already voted.");
                 __leave;
             }
@@ -792,8 +798,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         // TODO :good or bad
         if (bPerform)++pRoom->Perform;
         else ++pRoom->Screw;
-        if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) {
-            
+        if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) 
+        {
             if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw)) 
             {
 
@@ -834,6 +840,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         }
         
         bSuccess = TRUE;
+
+        pRoom->TeamMemberCnt = 0;
     }
     __finally
     {
@@ -857,13 +865,16 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
             bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
+
+        if (!pRoom->bFairyEnabled)
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The room doesn't have the fairy.");
+            __leave;
+        }
+
         if (pConnInfo->PlayingIndex != pRoom->FairyIndex)
         {
             bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You are not fairy.");
-            __leave;
-        }
-        if (!pRoom->bFairyEnabled) {
-            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The room doesn't have the fairy.");
             __leave;
         }
         UINT CheckIndex;
@@ -875,9 +886,9 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
         // TODO: 记得游戏里有不能选已经当过仙女的人来验的规则
 
-        if (pRoom->bBecomeFairy[pConnInfo->PlayingIndex]) 
+        if (pRoom->bBecomeFairy[CheckIndex])
         {
-            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You had become fairy.");
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The member had become fairy.");
             __leave;
         }
 
@@ -918,6 +929,8 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
                 __leave;
             }
         }
+
+        pRoom->FairyIndex = CheckIndex;
 
         bSuccess = TRUE;
     }
