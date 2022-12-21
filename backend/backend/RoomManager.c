@@ -574,7 +574,6 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
         }
         if (!BroadcastSelectTeam(pRoom, pRoom->TeamMemberCnt, pRoom->TeamMemberid))
         {
-
             bSuccess = FALSE;
             __leave;
         }
@@ -602,7 +601,8 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             __leave;
         }
 
-        if (pRoom->Game_Win >= 3) {
+        if (pRoom->Game_Win >= 3) 
+        {
             bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
             __leave;
         }
@@ -667,7 +667,8 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Vote hasn't started yet.");
             __leave;
         }
-        if (pRoom->Game_Win >= 3) {
+        if (pRoom->Game_Win >= 3) 
+        {
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
             __leave;
         }
@@ -774,10 +775,11 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         BOOL FLAG = 0;
         for (int i = 0; i < pRoom->TeamMemberCnt; i++)
         {
-            FLAG |= pRoom->TeamMemberid[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID;
+            FLAG |= (pRoom->TeamMemberid[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID);
         }
 
-        if (!FLAG) {
+        if (!FLAG) 
+        {
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in team.");
             __leave;
         }
@@ -814,8 +816,6 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             if (pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds])
                 ++pRoom->Game_Win;
             pRoom->Rounds++;
-            pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
-            pRoom->bConducting = FALSE;
             if (pRoom->Rounds - pRoom->Game_Win == 3) 
             {
                 if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 Rounds.")) 
@@ -831,6 +831,9 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
                     __leave;
                 }
             }
+            pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
+            pRoom->bConducting = FALSE;
+            pRoom->TeamMemberCnt = 0;
         }
 
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL)) 
@@ -841,7 +844,6 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         
         bSuccess = TRUE;
 
-        pRoom->TeamMemberCnt = 0;
     }
     __finally
     {
