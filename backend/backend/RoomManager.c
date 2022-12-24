@@ -19,7 +19,7 @@ UINT  Team_Member_Cnt[11][6] = {
             {0},//4
             {2,3,2,3,3},//5
             {2,3,4,3,4},//6
-            {2,3,4,4,4},//7
+            {2,3,3,4,4},//7
             {3,4,4,5,5},//8
             {3,4,4,5,5},//9
             {3,4,4,5,5} };//10
@@ -417,11 +417,13 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         }
         pRoom->bGaming = TRUE;
 
+        pRoom->TeamMemberCnt = 0;
         pRoom->Screw = 0;
         pRoom->Perform = 0;
         pRoom->Game_Win = 0;
         pRoom->Rounds = 0;
-       
+        pRoom->bConducting = 0;
+        pRoom->bvoting = 0;
         bSuccess = ReplyStartGame(pConnInfo, TRUE, NULL);
                 
         for (UINT i = 0; i < pRoom->PlayingCount; i++)
@@ -438,6 +440,10 @@ BOOL StartGame(_Inout_ PCONNECTION_INFO pConnInfo)
         {
             bSuccess = FALSE;
             __leave;
+        }
+        for (int i = 0; i < pRoom->PlayingCount; i++) 
+        {
+            pRoom->bBecomeFairy[i] = 0;
         }
         for (int i = 0; i < pRoom->PlayingCount; i++) 
         {
@@ -568,7 +574,6 @@ BOOL PlayerSelectTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT TeamMemberCn
         }
         if (!BroadcastSelectTeam(pRoom, pRoom->TeamMemberCnt, pRoom->TeamMemberid))
         {
-
             bSuccess = FALSE;
             __leave;
         }
@@ -596,8 +601,9 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             __leave;
         }
 
-        if (pRoom->Game_Win >= 3) {
-            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+        if (pRoom->Game_Win >= 3) 
+        {
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys have win 3 rounds.");
             __leave;
         }
         // TODO: 检查当前是否是队长选择队员的游戏阶段
@@ -626,6 +632,7 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
             __leave;
         }
         bSuccess = TRUE;
+        pRoom->bvoting = TRUE;
     }
     __finally {
         ReleaseSRWLockExclusive(&pRoom->PlayerListLock);
@@ -655,9 +662,14 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
-
-        if (pRoom->Game_Win >= 3) {
-            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+        if (!pRoom->bvoting)
+        {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Vote hasn't started yet.");
+            __leave;
+        }
+        if (pRoom->Game_Win >= 3) 
+        {
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys have win 3 rounds.");
             __leave;
         }
         // TODO: 检查当前是否是玩家投票阶段
@@ -696,6 +708,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
                 __leave;
             }
             pRoom->VotedCount = 0;
+            pRoom->bvoting = FALSE;
             if (cnt + cnt <= pRoom->PlayingCount) 
             {
                 pRoom->LeaderIndex = (pRoom->LeaderIndex + 1) % (pRoom->PlayingCount);
@@ -705,6 +718,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
                     __leave;
                 }
                 ++pRoom->Vote_Fail;
+                pRoom->TeamMemberCnt = 0;
                 if (pRoom->Vote_Fail == 5) {
                     if (!BroadcastEndGame(pRoom, FALSE, "VoteTeam Fail.")) 
                     {
@@ -720,7 +734,8 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
                 }
             }
             else {
-                pRoom->Vote_Fail=0;
+                pRoom->Vote_Fail = 0;
+                pRoom->bConducting = TRUE;
             }
         }
         bSuccess = TRUE;
@@ -745,10 +760,14 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
-
+        if (!pRoom->bConducting)
+        {
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Mission hasn't started yet.");
+            __leave;
+        }
         if (pRoom->Game_Win >= 3)
         {
-            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rounds.");
             __leave;
         }
         // TODO: 检查当前是否在执行任务的游戏阶段等...
@@ -756,16 +775,18 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         BOOL FLAG = 0;
         for (int i = 0; i < pRoom->TeamMemberCnt; i++)
         {
-            FLAG |= pRoom->TeamMemberid[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID;
+            FLAG |= (pRoom->TeamMemberid[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID);
         }
 
-        if (!FLAG) {
+        if (!FLAG) 
+        {
             bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "You are not in team.");
             __leave;
         }
         for (int i = 0; i < pRoom->DecidedCnt; i++)
         {
-            if (pRoom->DecidedIDList[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) {
+            if (pRoom->DecidedIDList[i] == pRoom->PlayingList[pConnInfo->PlayingIndex].GameID) 
+            {
                 bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "You've already voted.");
                 __leave;
             }
@@ -779,8 +800,8 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         // TODO :good or bad
         if (bPerform)++pRoom->Perform;
         else ++pRoom->Screw;
-        if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) {
-            
+        if (pRoom->DecidedCnt == Team_Member_Cnt[pRoom->PlayingCount][pRoom->Rounds]) 
+        {
             if (!BroadcastMissionResult(pRoom, pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds], pRoom->Perform, pRoom->Screw)) 
             {
 
@@ -795,10 +816,9 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             if (pRoom->Screw < Task_Fail[pRoom->PlayingCount][pRoom->Rounds])
                 ++pRoom->Game_Win;
             pRoom->Rounds++;
-            pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
             if (pRoom->Rounds - pRoom->Game_Win == 3) 
             {
-                if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 Rounds.")) 
+                if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 rounds.")) 
                 {
                     bSuccess = FALSE;
                     __leave;
@@ -811,6 +831,9 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
                     __leave;
                 }
             }
+            pRoom->DecidedCnt = pRoom->Screw = pRoom->Perform = 0;
+            pRoom->bConducting = FALSE;
+            pRoom->TeamMemberCnt = 0;
         }
 
         if (!ReplyPlayerConductMission(pConnInfo, TRUE, NULL)) 
@@ -820,6 +843,7 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         }
         
         bSuccess = TRUE;
+
     }
     __finally
     {
@@ -843,13 +867,16 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
             bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "Game hasn't started yet.");
             __leave;
         }
+
+        if (!pRoom->bFairyEnabled)
+        {
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The room doesn't have the fairy.");
+            __leave;
+        }
+
         if (pConnInfo->PlayingIndex != pRoom->FairyIndex)
         {
             bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You are not fairy.");
-            __leave;
-        }
-        if (!pRoom->bFairyEnabled) {
-            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The room doesn't have the fairy.");
             __leave;
         }
         UINT CheckIndex;
@@ -861,9 +888,9 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
 
         // TODO: 记得游戏里有不能选已经当过仙女的人来验的规则
 
-        if (pRoom->bBecomeFairy[pConnInfo->PlayingIndex]) 
+        if (pRoom->bBecomeFairy[CheckIndex])
         {
-            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "You had become fairy.");
+            bSuccess = ReplyPlayerFairyInspect(pConnInfo, FALSE, "The member had become fairy.");
             __leave;
         }
 
@@ -904,6 +931,8 @@ BOOL PlayerFairyInspect(_Inout_ PCONNECTION_INFO pConnInfo, _In_ UINT ID)
                 __leave;
             }
         }
+
+        pRoom->FairyIndex = CheckIndex;
 
         bSuccess = TRUE;
     }

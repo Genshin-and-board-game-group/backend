@@ -90,6 +90,10 @@ typedef struct _GAME_ROOM
 
     UINT Game_Win;
 
+    BOOL bvoting;
+
+    UINT bConducting;
+
 }GAME_ROOM, * PGAME_ROOM;
 
 VOID InitRoomManager(VOID);
