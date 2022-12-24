@@ -669,7 +669,7 @@ BOOL PlayerVoteTeam(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bVote)
         }
         if (pRoom->Game_Win >= 3) 
         {
-            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys has win 3 rouonds.");
+            bSuccess = ReplyPlayerVoteTeam(pConnInfo, FALSE, "Good guys have win 3 rounds.");
             __leave;
         }
         // TODO: 检查当前是否是玩家投票阶段
@@ -767,7 +767,7 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
         }
         if (pRoom->Game_Win >= 3)
         {
-            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
+            bSuccess = ReplyPlayerConductMission(pConnInfo, FALSE, "Good guys have win 3 rounds.");
             __leave;
         }
         // TODO: 检查当前是否在执行任务的游戏阶段等...
@@ -818,7 +818,7 @@ BOOL PlayerConductMission(_Inout_ PCONNECTION_INFO pConnInfo, _In_ BOOL bPerform
             pRoom->Rounds++;
             if (pRoom->Rounds - pRoom->Game_Win == 3) 
             {
-                if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 Rounds.")) 
+                if (!BroadcastEndGame(pRoom, FALSE, "Bad Guys have win 3 rounds.")) 
                 {
                     bSuccess = FALSE;
                     __leave;
