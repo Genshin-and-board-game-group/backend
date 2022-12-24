@@ -603,7 +603,7 @@ BOOL PlayerConfirmTeam(_Inout_ PCONNECTION_INFO pConnInfo)
 
         if (pRoom->Game_Win >= 3) 
         {
-            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys have win 3 rouonds.");
+            bSuccess = ReplyPlayerConfirmTeam(pConnInfo, FALSE, "Good guys have win 3 rounds.");
             __leave;
         }
         // TODO: 检查当前是否是队长选择队员的游戏阶段
